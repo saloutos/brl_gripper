@@ -1,5 +1,11 @@
 # brl_gripper
 
+## Purpose of this repo
+
+This codebase lives between controller code and simulation and hardware domains.
+It handles setup and communication for the hardware, the simulation, and the renderer.
+The goal of this structure is to allow for identical controller code to be deployed in simulation and on hardware,  with as small of a sim-to-real gap as possible.
+
 ## Installation instructions
 
 Clone repository.
@@ -7,6 +13,8 @@ Clone repository.
 Optional: activate virtual environment.
 
 Run "pip install ." in top-level directory of the repo.
+
+After pulling any changes to this repo, re-installation will be necessary.
 
 # Random Notes
 

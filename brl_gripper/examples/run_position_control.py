@@ -15,15 +15,9 @@ xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
 GP = bg.GripperPlatform(xml_path, viewer_enable=True, hardware_enable=bg.NO_HW, log_path=log_path)
 
-# controllers
-# from controllers.dummy.dummy_controller import DummyController
-# controller = DummyController()
-# from controllers.finger_demos.impedance_control import ImpedanceControlDemo
-# controller = ImpedanceControlDemo()
-# from controllers.finger_demos.position_trajectories import PosTrajDemo
-# controller = PosTrajDemo()
-from controllers.finger_demos.potential_fields import PotentialFieldsDemo
-controller = PotentialFieldsDemo()
+# controller
+from controllers.finger_demos.position_trajectories import PosTrajDemo
+controller = PosTrajDemo()
 
 atexit.register(GP.shutdown)
 print("Finished init.")
