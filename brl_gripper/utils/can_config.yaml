@@ -1,0 +1,28 @@
+Interface1: # Hand CAN
+  bustype: pcan
+  channel: PCAN_USBBUS1
+  device_id: "4294967294"
+  state: can.bus.BusState.ACTIVE
+  fd: True
+  f_clock_mhz: 80
+
+Interface2: # U6 CAN
+  bustype: pcan
+  channel: PCAN_USBBUS2
+  device_id: "4294967295"
+  state: can.bus.BusState.ACTIVE
+  fd: False
+  f_clock_mhz: 80
+
+Nominal: #Arbiration Bitrate Params
+  bitrate: 1000000
+  brp: 10
+  tseg1: 5
+  tseg2: 2
+  sjw: 2
+
+Data: #Data Bitrate Params for CAN-FD, Use Arbitration Bitrate Params for Regular CAN
+  brp: 1
+  tseg1: 11
+  tseg2: 4
+  sjw: 4

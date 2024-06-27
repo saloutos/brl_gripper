@@ -1,0 +1,4 @@
+include README.md
+include brl_gripper/assets/*.xml
+include brl_gripper/assets/meshes/*.STL
+include brl_gripper/utils/can_config.yaml
