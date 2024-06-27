@@ -190,7 +190,7 @@ class PhalangeSensorData(SensorData):
         self.tof_raw = np.array([0]) # in mm
         self.dist = np.array([0.0]) # in m
         # FSR threshold for contact detection
-        self.fsr_threshold = 3750
+        self.fsr_threshold = 3500
         # FSR locations in sensor frame
         # NOTE: ToF sensor is at origin of sensor frame
         self.fsr_offsets = np.array([[0.0, 0.0, 0.0],
