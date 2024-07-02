@@ -32,7 +32,7 @@ try:
     GP.apply_control()
     GP.sync_viewer()
     print("Starting main loop.")
-    while GP.mode==bg.HW_NO_VIS or GP.mj_viewer.is_running(): # TODO: better way to do this?
+    while GP.mode==bg.PlatformMode.HW_NO_VIS or GP.mj_viewer.is_running(): # TODO: better way to do this?
         # step in time to update data from hardware or sim
         GP.step()
         # run controller and update commands
