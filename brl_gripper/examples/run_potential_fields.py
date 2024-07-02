@@ -13,7 +13,7 @@ init_settings = termios.tcgetattr(sys.stdin)
 # platform
 xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
-GP = bg.GripperPlatform(xml_path, viewer_enable=True, hardware_enable=bg.NO_HW, log_path=None)
+GP = bg.GripperPlatform(xml_path, viewer_enable=True, hardware_enable=bg.HardwareEnable.NO_HW, log_path=None)
 
 # controller
 from controllers.finger_demos.potential_fields import PotentialFieldsDemo
