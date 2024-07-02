@@ -239,6 +239,9 @@ class GripperPlatform:
         # handle keyboard inputs
         self.char_in = chr(keycode)
         self.new_char = True
+        if self.char_in==' ' and self.mode==PlatformMode.SIM_ONLY: # can only pause in sim
+            self.paused = not self.paused # toggle pause
+            print(f"Paused: {self.paused}")
 
     def time(self):
         if self.mode==PlatformMode.SIM_ONLY and not self.enforce_real_time_sim:

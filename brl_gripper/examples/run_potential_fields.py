@@ -31,19 +31,20 @@ try:
     GP.sync_viewer()
     print("Starting main loop.")
     while GP.mode==bg.PlatformMode.HW_NO_VIS or GP.mj_viewer.is_running(): # TODO: better way to do this?
-        # step in time to update data from hardware or sim
-        GP.step()
-        # run controller and update commands
-        if GP.run_control:
-            GP.run_control = False
-            GP.sync_data()
-            controller.update(GP.gr_data)
-            GP.apply_control()
-            GP.log_data()
-        # sync viewer
-        if GP.run_viewer_sync:
-            GP.run_viewer_sync = False
-            GP.sync_viewer()
+        if not GP.paused:
+            # step in time to update data from hardware or sim
+            GP.step()
+            # run controller and update commands
+            if GP.run_control:
+                GP.run_control = False
+                GP.sync_data()
+                controller.update(GP.gr_data)
+                GP.apply_control()
+                GP.log_data()
+            # sync viewer
+            if GP.run_viewer_sync:
+                GP.run_viewer_sync = False
+                GP.sync_viewer()
 
 # end experiment
 finally:
