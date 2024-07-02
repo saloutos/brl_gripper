@@ -66,6 +66,7 @@ class FingertipSensorData(SensorData):
         self.contact_angle = np.array([0.0, 0.0])  # theta, phi in deg
         # TODO: set a clearer ToF order here
         self.tof_raw = np.array([0, 0, 0, 0, 0])  # 1,2,3,4,5 in mm
+        self.dist_offset = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
         self.dist = np.array([0.0, 0.0, 0.0, 0.0, 0.0]) # 1,2,3,4,5 in m
         # contact angle ranges and filter coefficients
         self.theta_range = [-45.0, 45.0]
@@ -77,7 +78,7 @@ class FingertipSensorData(SensorData):
         # NOTE: center of rubber sphere is origin of sensor frame
         self.nominal_contact = np.array([0.0, 0.0, 0.01]) # sphere radius is 10mm
         self.force_scale = 0.02
-        self.tof_offsets = np.array([[-0.0025, -0.00782, -0.008], # tof1
+        self.tof_pos_offsets = np.array([[-0.0025, -0.00782, -0.008], # tof1
                                     [0.0082, -0.00735, 0.0], # tof2
                                     [-0.0025, 0.00782, -0.008], # tof3
                                     [0.0082, 0.00735, 0.0], # tof4
@@ -97,7 +98,12 @@ class FingertipSensorData(SensorData):
         if offset is not None:
             self.contact_force_offset = offset
         else:
-            self.contact_force_offset = self.contact_force_raw
+            self.contact_force_offset = self.contact_force_raw.copy()
+    def set_dist_offset(self, offset=None):
+        if offset is not None:
+            self.dist_offset = offset
+        else:
+            self.dist_offset = self.dist.copy()
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
@@ -139,7 +145,7 @@ class FingertipSensorData(SensorData):
             self.contact_angle = (1.0-self.contact_angle_filter_alpha)*self.contact_angle + self.contact_angle_filter_alpha*self.contact_angle_raw
     def convert_tof_data(self):
         self.tof_raw = np.where(self.tof_raw==0, 254, self.tof_raw)
-        self.dist = self.tof_raw/1000.0  # convert mm to m
+        self.dist = (self.tof_raw/1000.0) - self.dist_offset  # convert mm to m, apply offset
     # visualization of hardware data
     def sync_data_to_viewer(self, scene, start_idx):
         idx = start_idx
@@ -148,7 +154,7 @@ class FingertipSensorData(SensorData):
             # line starts at pos, aligns with z-axis of sensor frame
             scene.geoms[idx].type = 103 # line
             scene.geoms[idx].size = np.array([4, 4, self.dist[t]]) # width in px, width in px, length in m
-            scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.tof_offsets[t,:])
+            scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.tof_pos_offsets[t,:])
             # align z-axis geom frame with tof sensor direction!
             z = self.tof_signs[t]*self.kinematics[1][:,self.tof_axes[t]].reshape((3,1)) # should be unit vec already
             y = np.cross(z.squeeze(), np.array([0, 1, 0]).squeeze()).reshape((3,1))
@@ -188,18 +194,30 @@ class PhalangeSensorData(SensorData):
         self.fsr_raw = np.array([0, 0]) # 1,2 in counts
         self.contact = np.array([0, 0]) # 1,2 in binary
         self.tof_raw = np.array([0]) # in mm
+        self.dist_offset = np.array([0.0])
         self.dist = np.array([0.0]) # in m
         # FSR threshold for contact detection
-        self.fsr_threshold = 3500
+        self.fsr_threshold = np.array([3500, 3500])
         # FSR locations in sensor frame
         # NOTE: ToF sensor is at origin of sensor frame
-        self.fsr_offsets = np.array([[0.0, 0.0, 0.0],
+        self.fsr_pos_offsets = np.array([[0.0, 0.0, 0.0],
                                     [0.0, 0.0, 0.0]])
     # logging functions
     def log_data(self):
         return self.contact.tolist()+self.dist.tolist()
     def log_header(self):
         return [self.name+"_contact1",self.name+"_contact2",self.name+"_dist"]
+    # initialization functions
+    def set_fsr_threshold(self, thresh=None):
+        if thresh is not None:
+            self.fsr_threshold = thresh
+        else:
+            self.fsr_threshold = self.fsr_raw.copy()
+    def set_dist_offset(self, offset=None):
+        if offset is not None:
+            self.dist_offset = offset
+        else:
+            self.dist_offset = self.dist.copy()
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
@@ -223,7 +241,7 @@ class PhalangeSensorData(SensorData):
         self.contact = np.where(self.fsr_raw<self.fsr_threshold, 1, 0)
     def convert_tof_data(self):
         self.tof_raw = np.where(self.tof_raw==0, 254, self.tof_raw)
-        self.dist = self.tof_raw/1000.0  # convert mm to m
+        self.dist = (self.tof_raw/1000.0) - self.dist_offset  # convert mm to m
     # visualization of hardware data
     def sync_data_to_viewer(self, scene, start_idx):
         idx = start_idx
@@ -240,7 +258,7 @@ class PhalangeSensorData(SensorData):
             # arrow starts at pos, aligns with z-axis of sensor frame
             scene.geoms[idx].type = 100 # arrow
             scene.geoms[idx].size = np.array([0.002, 0.002, self.contact[f]*0.05]) # radius, radius, length in m
-            scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.fsr_offsets[f])
+            scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.fsr_pos_offsets[f])
             scene.geoms[idx].mat = self.kinematics[1] # full 3x3 matrix, not 9-vector
             scene.geoms[idx].rgba = np.array([0.5, 0.78, 0.2, 0.5])
             idx += 1
@@ -250,21 +268,21 @@ class PalmSensorData(PhalangeSensorData):
     def __init__(self, name=""):
         super().__init__(name)
         # different FSR locations
-        self.fsr_offsets = np.array([[0.0, 0.01465, 0.0],
+        self.fsr_pos_offsets = np.array([[0.0, 0.01465, 0.0],
                                     [0.0, -0.01465, 0.0]])
 
 class McpPhalangeSensorData(PhalangeSensorData):
     def __init__(self, name=""):
         super().__init__(name)
         # different FSR locations
-        self.fsr_offsets = np.array([[-0.009325, 0.0, 0.0],
+        self.fsr_pos_offsets = np.array([[-0.009325, 0.0, 0.0],
                                     [0.009325, 0.0, 0.0]])
 
 class PipPhalangeSensorData(PhalangeSensorData):
     def __init__(self, name=""):
         super().__init__(name)
         # different FSR locations
-        self.fsr_offsets = np.array([[-0.00525, 0.0, 0.0],
+        self.fsr_pos_offsets = np.array([[-0.00525, 0.0, 0.0],
                                     [0.00525, 0.0, 0.0]])
 
 
