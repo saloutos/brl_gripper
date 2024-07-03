@@ -85,6 +85,7 @@ class GripperPlatform:
         self.view_dt = 0.0333 # 30fps default
         self.control_dt = 0.002 # 500Hz default
         self.enforce_real_time_sim = True # default to real-time sim
+        self.dt_comp = 0.0
         self.sim_steps_per_control = math.floor(self.control_dt/self.sim_dt) # re-calculate in initialize for safety
         self.run_viewer_sync = False
         self.run_control = False
@@ -263,7 +264,9 @@ class GripperPlatform:
 
     def step(self):
         # get current time
+        self.previous_t = self.current_t
         self.current_t = self.time()
+        # print(self.current_t-self.previous_t)
 
         # if mode has viewer
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
@@ -321,11 +324,9 @@ class GripperPlatform:
             # holding controller inputs constant for control dt, so simulate all steps in one go
             # simulate for self.sim_steps_per_control
             mj.mj_step(self.mj_model, self.mj_data, nstep=self.sim_steps_per_control)
-
             # for real-time sim, wait for control_dt since start of step()
-            # TODO: better way to do this compensation?
-            dt_comp = 0.00015
-            while (self.time()-self.current_t < self.control_dt-dt_comp): continue
+            if self.enforce_real_time_sim:
+                while (self.time()-self.current_t < self.control_dt-self.dt_comp): continue
             # update timing and set control flag
             self.last_control_t = self.current_t
             self.run_control = True
