@@ -35,9 +35,14 @@
             <geom name="upper_camera" type="box" group="0" size="0.05 0.01 0.01" rgba="0.2 0.2 0.2 1"/>
         </body>
 
-        <!-- FLOATING BASE -->
-        <body name="floating" mocap="true" pos="0 0 0.1" euler="0 0 0">
-            <geom name="floating" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1"/>
+        <!-- FLOATING BASE WITH MOCAP-->
+        <body name="floating_1" mocap="true" pos="0 0 0.1" euler="0 0 0">
+            <geom name="floating_1" type="sphere" group="1" size="0.02" rgba="0.1 0.1 0.1 0.2" contype="0" conaffinity="0"/>
+        </body>
+
+        <body name="floating_2" pos="0 0 0.1" euler="0 0 0">
+            <geom name="floating_2" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1" contype="0" conaffinity="0"/>
+            <freejoint name="floating_2"/>
 
             <!-- PALM -->
             <body name="palm" pos="0 0 0" >
@@ -92,8 +97,8 @@
                                 <site name="l_dip_tof5" group="0" size="0.001" pos="0.034 0.011 0" rgba="1 0 0 1" euler="-1.57079633 0 0"/>
 
                                 <body name="l_dip_tip" pos="0.0325 0 0">
-                                    <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8"/>
-                                    <inertial pos="0 0 0" mass="0.0"/>
+                                    <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
+                                    <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8" contype="1" conaffinity="1" condim="6" priority="1" friction="1 0.01 0.01"/>
                                     <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
@@ -138,8 +143,8 @@
                                 <site name="r_dip_tof5" group="0" size="0.001" pos="0.034 -0.011 0" rgba="0 1 0 1" euler="1.57079633 0 0"/>
 
                                 <body name="r_dip_tip" pos="0.0325 0 0">
-                                    <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8"/>
-                                    <inertial pos="0 0 0" mass="0.0"/>
+                                    <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
+                                    <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" contype="1" conaffinity="1" condim="6" priority="1" friction="1 0.01 0.01"/>
                                     <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
@@ -151,8 +156,14 @@
 
     </worldbody>
 
+    <equality>
+        <weld body1="floating_1" body2="floating_2" solimp="0.95 0.99 0.001 0.5 2"  solref="0.02 1"/>
+    </equality>
+
     <contact>
-        <exclude body1="floating"   body2="palm"/>
+        <exclude body1="floating_1"   body2="floating_2"/>
+        <exclude body1="floating_1"   body2="palm"/>
+        <exclude body1="floating_2"   body2="palm"/>
         <exclude body1="palm"       body2="palm_camera"/>
         <exclude body1="l_mcr"      body2="palm"/>
         <exclude body1="r_mcr"      body2="palm"/>
