@@ -36,7 +36,7 @@ class HardwareEnable(Enum):
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_scene_name, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         self.viewer_enable = viewer_enable
@@ -52,7 +52,7 @@ class GripperPlatform:
         else:
             print("Invalid hardware enable flags. Defaulting to simulation only.")
             self.hardware_enable = False
-            self.hardware_enable = False
+            self.wrist_enable = False
         # default to simulation only
         self.mode = PlatformMode.SIM_ONLY
         if self.hardware_enable:
@@ -61,15 +61,9 @@ class GripperPlatform:
             else:
                 self.mode = PlatformMode.HW_NO_VIS
 
-        # load and prepare mujoco model from path
-        # TODO: should this take the model and data as init arguments?
-        if self.mode==PlatformMode.SIM_ONLY:
-            mj_xml_path = mj_scene_name+".xml"
-        elif self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.HW_NO_VIS:
-            mj_xml_path = mj_scene_name+"_hw.xml"
-        self.mj_model = mj.MjModel.from_xml_path(mj_xml_path)
+        # load mujoco model and data
+        self.mj_model = mj_model
         self.mj_data = mj.MjData(self.mj_model)
-        mj.mj_forward(self.mj_model, self.mj_data)
 
         # gripper data init
         # TODO: if GripperData() takes list of joints and sensors as arguments, then pass them here
@@ -141,6 +135,10 @@ class GripperPlatform:
                 print(f"CAN init failed: {e}")
 
     def initialize(self):
+
+        # prepare mujoco model
+        mj.mj_forward(self.mj_model, self.mj_data)
+
         # start viewer
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
             self.mj_viewer = mjv.launch_passive(self.mj_model, self.mj_data, show_left_ui=False, show_right_ui=False, key_callback=self.key_callback)

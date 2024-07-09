@@ -1,5 +1,6 @@
 # imports
 import brl_gripper as bg
+import mujoco as mj
 import atexit
 import tty
 import termios
@@ -13,7 +14,15 @@ init_settings = termios.tcgetattr(sys.stdin)
 # platform
 xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
-GP = bg.GripperPlatform(xml_path, viewer_enable=True, hardware_enable=bg.HardwareEnable.NO_HW, log_path=None)
+
+hw_mode = bg.HardwareEnable.NO_HW
+if hw_mode == bg.HardwareEnable.NO_HW:
+    mj_model = mj.MjModel.from_xml_path(xml_path+"_with_object.xml")
+else:
+    mj_model = mj.MjModel.from_xml_path(xml_path+".xml")
+
+GP = bg.GripperPlatform(mj_model, viewer_enable=True, hardware_enable=hw_mode, log_path=None)
+
 GP.control_dt = 1.0/300.0
 GP.hand_control_mode = bg.HandControlMode.POSITION_CONTROL
 
