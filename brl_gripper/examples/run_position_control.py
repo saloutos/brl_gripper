@@ -46,16 +46,21 @@ try:
             # step in time to update data from hardware or sim
             GP.step()
             # run controller and update commands
+            GP.dt_comp = 0.0 # for real-time simulation
             if GP.run_control:
+                control_start_time = GP.time()
                 GP.run_control = False
                 GP.sync_data()
                 controller.update(GP.gr_data)
                 GP.apply_control()
                 GP.log_data()
+                GP.dt_comp += GP.time() - control_start_time
             # sync viewer
             if GP.run_viewer_sync:
+                viewer_sync_start_time = GP.time()
                 GP.run_viewer_sync = False
                 GP.sync_viewer()
+                GP.dt_comp += GP.time() - viewer_sync_start_time
 
 # end experiment
 finally:

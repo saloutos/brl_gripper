@@ -1,6 +1,6 @@
 <mujoco model="hand">
 
-    <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
+    <compiler angle="radian" autolimits="true"/>
 
     <default class="main">
         <joint armature="0"/>
@@ -17,14 +17,14 @@
     </default>
 
     <asset>
-        <mesh name="palm_structure" file="palm_block_structure.STL"/>
-        <mesh name="palm_sensor"    file="palm_block_sensor.STL"/>
-        <mesh name="mcr"            file="right_finger_MCR_block.STL"/>
-        <mesh name="mcp_structure"  file="right_finger_MCP_structure.STL"/>
-        <mesh name="mcp_sensor"     file="right_finger_MCP_sensor.STL"/>
-        <mesh name="pip_structure"  file="right_finger_PIP_structure.STL"/>
-        <mesh name="pip_sensor"     file="right_finger_PIP_sensor.STL"/>
-        <mesh name="dip"            file="right_finger_DIP_block_no_sphere.STL"/>
+        <mesh name="palm_structure" file="meshes/palm_block_structure.STL"/>
+        <mesh name="palm_sensor"    file="meshes/palm_block_sensor.STL"/>
+        <mesh name="mcr"            file="meshes/right_finger_MCR_block.STL"/>
+        <mesh name="mcp_structure"  file="meshes/right_finger_MCP_structure.STL"/>
+        <mesh name="mcp_sensor"     file="meshes/right_finger_MCP_sensor.STL"/>
+        <mesh name="pip_structure"  file="meshes/right_finger_PIP_structure.STL"/>
+        <mesh name="pip_sensor"     file="meshes/right_finger_PIP_sensor.STL"/>
+        <mesh name="dip"            file="meshes/right_finger_DIP_block_no_sphere.STL"/>
     </asset>
 
     <worldbody>
