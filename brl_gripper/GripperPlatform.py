@@ -391,7 +391,7 @@ class GripperPlatform:
             for key in self.gr_data.joints.keys():
                 self.gr_data.joints[key].q = self.mj_data.joint(key).qpos
                 self.gr_data.joints[key].qd = self.mj_data.joint(key).qvel
-                self.gr_data.joints[key].tau = self.mj_data.joint(key).qfrc_applied
+                self.gr_data.joints[key].tau = self.mj_data.joint(key).qfrc_actuator
             # get contact location data for fingertips
             # TODO: should we just do this for phalanges too?
             l_contact = []
