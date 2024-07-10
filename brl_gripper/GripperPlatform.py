@@ -74,8 +74,9 @@ class GripperPlatform:
         self.current_t = 0.0
         self.last_view_t = 0.0
         self.last_control_t = 0.0
-        self.sim_dt = 0.001
-        self.mj_model.opt.timestep = self.sim_dt # re-assign in initialize for safety
+        # self.sim_dt = 0.001
+        # self.mj_model.opt.timestep = self.sim_dt # re-assign in initialize for safety
+        self.sim_dt = self.mj_model.opt.timestep
         self.view_dt = 0.0333 # 30fps default
         self.control_dt = 0.002 # 500Hz default
         self.enforce_real_time_sim = True # default to real-time sim
@@ -169,7 +170,8 @@ class GripperPlatform:
 
         # just in case, re-calculate sim steps per control period and update model timestep
         # this should not change after this point
-        self.mj_model.opt.timestep = self.sim_dt
+        if self.sim_dt != self.mj_model.opt.timestep:
+            self.mj_model.opt.timestep = self.sim_dt
         self.sim_steps_per_control = math.floor(self.control_dt/self.sim_dt)
 
         # send initialize message to hand
