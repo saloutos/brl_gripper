@@ -21,9 +21,11 @@ from .assets import ASSETS_DIR
 
 # define possible platform modes
 class PlatformMode(Enum):
-    HW_WITH_VIS = 0
-    HW_NO_VIS   = 1
-    SIM_ONLY    = 2
+    # TODO: change order here, default to 0 for simulation with vis
+    HW_WITH_VIS     = 0
+    HW_NO_VIS       = 1
+    SIM_WITH_VIS    = 2
+    SIM_NO_VIS      = 3
 
 # define hardware enable modes
 class HardwareEnable(Enum):
@@ -39,6 +41,9 @@ class GripperPlatform:
     def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
+
+        # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
+
         self.viewer_enable = viewer_enable
         if hardware_enable==HardwareEnable.NO_HW:
             self.hardware_enable = False
@@ -53,13 +58,17 @@ class GripperPlatform:
             print("Invalid hardware enable flags. Defaulting to simulation only.")
             self.hardware_enable = False
             self.wrist_enable = False
-        # default to simulation only
-        self.mode = PlatformMode.SIM_ONLY
+        # default to simulation with viewer
         if self.hardware_enable:
             if self.viewer_enable:
                 self.mode = PlatformMode.HW_WITH_VIS
             else:
                 self.mode = PlatformMode.HW_NO_VIS
+        else:
+            if self.viewer_enable:
+                self.mode = PlatformMode.SIM_WITH_VIS
+            else:
+                self.mode = PlatformMode.SIM_NO_VIS
 
         # load mujoco model and data
         self.mj_model = mj_model
@@ -141,7 +150,7 @@ class GripperPlatform:
         mj.mj_forward(self.mj_model, self.mj_data)
 
         # start viewer
-        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS:
             self.mj_viewer = mjv.launch_passive(self.mj_model, self.mj_data, show_left_ui=False, show_right_ui=False, key_callback=self.key_callback)
             with self.mj_viewer.lock():
                 # set viewer options here
@@ -151,7 +160,7 @@ class GripperPlatform:
                 self.mj_viewer.cam.elevation = -15
                 self.mj_viewer.cam.azimuth = 120
                 self.mj_viewer.cam.lookat = np.array([-0.1, 0.1, 0.15])
-                if self.mode==PlatformMode.SIM_ONLY:
+                if self.mode==PlatformMode.SIM_WITH_VIS:
                     self.mj_viewer.opt.flags[mj.mjtVisFlag.mjVIS_CONTACTPOINT] = True
                     self.mj_viewer.opt.flags[mj.mjtVisFlag.mjVIS_CONTACTFORCE] = True
                     self.mj_viewer.opt.flags[mj.mjtVisFlag.mjVIS_CONTACTSPLIT] = True
@@ -204,7 +213,7 @@ class GripperPlatform:
             print("CAN bus disabled.")
         # TODO: close CAN busses properly?
         # close viewer
-        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS:
             self.mj_viewer.close()
             print("Viewer closed.")
         # log recorded data
@@ -226,7 +235,7 @@ class GripperPlatform:
 
     def check_user_input(self):
         # with no viewer, need to check terminal input
-        if self.mode==PlatformMode.HW_NO_VIS:
+        if self.mode==PlatformMode.HW_NO_VIS or self.mode==PlatformMode.SIM_NO_VIS:
             if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
                 self.char_in = sys.stdin.read(1)
             else:
@@ -240,19 +249,19 @@ class GripperPlatform:
         # handle keyboard inputs
         self.char_in = chr(keycode)
         self.new_char = True
-        if self.char_in==' ' and self.mode==PlatformMode.SIM_ONLY: # can only pause in sim
+        if self.char_in==' ' and self.mode==PlatformMode.SIM_WITH_VIS: # can only pause in sim with viewer
             self.paused = not self.paused # toggle pause
             print(f"Paused: {self.paused}")
 
     def time(self):
-        if self.mode==PlatformMode.SIM_ONLY and not self.enforce_real_time_sim:
+        if (self.mode==PlatformMode.SIM_WITH_VIS or self.mode==PlatformMode.SIM_NO_VIS) and not self.enforce_real_time_sim:
             return self.mj_data.time
         else:
             return time.time()
 
     def sync_viewer(self):
         # TODO: is this check even necessary? might end up redundant
-        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
+        if (self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS) and self.mj_viewer.is_running():
             self.mj_viewer.user_scn.ngeom = 0
             # TODO: update any other visual elements here
             # sync sensor visualizations
@@ -269,7 +278,7 @@ class GripperPlatform:
         # print(self.current_t-self.previous_t)
 
         # if mode has viewer
-        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS:
             # check if viewer flag needs to be set
             if self.current_t - self.last_view_t > self.view_dt:
                 self.last_view_t = self.current_t
@@ -320,7 +329,7 @@ class GripperPlatform:
                 num_tries += 1
 
         # if simulation mode
-        if self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.SIM_WITH_VIS or self.mode==PlatformMode.SIM_NO_VIS:
             # holding controller inputs constant for control dt, so simulate all steps in one go
             # simulate for self.sim_steps_per_control
             mj.mj_step(self.mj_model, self.mj_data, nstep=self.sim_steps_per_control)
@@ -385,7 +394,7 @@ class GripperPlatform:
         #     self.gr_data.sensors[key].update_kinematics(site_kinematics) # TODO: would need to change this function
 
         # if simulation is enabled
-        if self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.SIM_WITH_VIS or self.mode==PlatformMode.SIM_NO_VIS:
             # fill gr_data from mj_data
             # start with just joint info (q, qd, tau), access by name
             # TODO: should this iterate through model joints first? then gr_data joint keys?
@@ -479,7 +488,7 @@ class GripperPlatform:
                 self.CAN_bus_2.send(can.Message(arbitration_id=WRIST_ID, data=wrist_msg, is_extended_id=False))
 
         # if simulation mode
-        if self.mode==PlatformMode.SIM_ONLY:
+        if self.mode==PlatformMode.SIM_WITH_VIS or self.mode==PlatformMode.SIM_NO_VIS:
             # update actuator commands based on gr_data tau_command, will be applied during next mj_step call
             self.mj_data.ctrl = self.gr_data.get_tau_command(self.gr_data.all_idxs)
 
