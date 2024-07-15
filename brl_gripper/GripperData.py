@@ -68,6 +68,14 @@ class FingertipSensorData(SensorData):
         self.tof_raw = np.array([0, 0, 0, 0, 0])  # 1,2,3,4,5 in mm
         self.dist_offset = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
         self.dist = np.array([0.0, 0.0, 0.0, 0.0, 0.0]) # 1,2,3,4,5 in m
+
+        # TODO: save some intermediate variables here, other useful quantities?
+        # contact location in sensor frame
+        # contact frame as rotation matrix
+        # contact force in sensor frame
+        self.T_sensor_contact = np.eye(4) # transformation from sensor frame to contact frame
+        self.F_contact_sensor = np.array([0.0, 0.0, 0.0]) # contact force in sensor frame
+
         # contact angle ranges and filter coefficients
         self.theta_range = [-45.0, 45.0]
         self.phi_range = [-135.0, 45.0]
@@ -133,6 +141,16 @@ class FingertipSensorData(SensorData):
         # TODO: only filter angle if contact force is above threshold
         self.filter_contact_angle()
         self.convert_tof_data()
+        # update other contact variables # TODO: verify this is correct
+        theta_rad = np.deg2rad(self.contact_angle[0])
+        phi_rad = np.deg2rad(self.contact_angle[1])
+        R_theta = np.array([[1, 0, 0], [0, np.cos(theta_rad), -np.sin(theta_rad)], [0, np.sin(theta_rad), np.cos(theta_rad)]]) # Rx by theta
+        R_phi = np.array([[np.cos(phi_rad), 0, np.sin(phi_rad)], [0, 1, 0], [-np.sin(phi_rad), 0, np.cos(phi_rad)]]) # Ry by phi
+        R_cont = R_phi @ R_theta
+        self.contact_force_sensor = R_cont @ self.contact_force
+        self.T_sensor_contact[0:3,0:3] = R_cont
+        self.T_sensor_contact[0:3,3:4] = R_cont.dot(self.nominal_contact).reshape((3,1))
+
     def filter_contact_force(self, alpha=None):
         if alpha is not None:
             self.contact_force = (1.0-alpha)*self.contact_force + alpha*(self.contact_force_raw-self.contact_force_offset)

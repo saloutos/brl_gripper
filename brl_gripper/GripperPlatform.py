@@ -41,9 +41,7 @@ class GripperPlatform:
     def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
-
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
-
         self.viewer_enable = viewer_enable
         if hardware_enable==HardwareEnable.NO_HW:
             self.hardware_enable = False
