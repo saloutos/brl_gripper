@@ -5,7 +5,7 @@
   <worldbody>
     <body name="object" pos="0.22 0 0.02">
         <joint type="free" group="3" stiffness="0" damping="0" frictionloss="0" armature="0"/>
-        <geom name="object" type="box" group="3" size="0.03 0.03 0.03" rgba="0.7 0.2 0.1 0.6" condim="6" priority="1" friction="1 0.01 0.003" density="1000"/> <!-- 0.5 0.01 0.003 -->
+        <geom name="object" type="box" group="3" size="0.03 0.03 0.03" rgba="0.7 0.2 0.1 0.6" class="contact" density="1000"/> <!-- 0.5 0.01 0.003 -->
     </body>
 
   </worldbody>

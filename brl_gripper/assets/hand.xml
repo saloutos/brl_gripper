@@ -3,7 +3,6 @@
     <compiler angle="radian" autolimits="true"/>
 
     <default class="main">
-        <joint armature="0"/>
         <default class="XM430">
             <joint armature="0.002214" damping="0.1" frictionloss = "0.04"/> <!-- Reflected Inertia: 4.9e-8*212.6**2 -->
         </default>
@@ -11,8 +10,13 @@
             <!-- TODO: correct rotor inertia -->
             <joint armature="0.011087" damping="0.1" frictionloss="0.04"/> <!-- Reflected Inertia: 4.78e-7*152.3**2 -->
         </default>
-
         <!-- TODO: add defaults for contact parameters for different sensor bodies? -->
+        <default class="contact">
+            <geom conaffinity="1" contype="1" condim="6" priority="1" friction="1.0 0.02 0.005" solimp="0.95 0.99 0.001 0.5 2"  solref="0.005 1"/>
+        </default>
+        <default class="no_contact">
+            <geom conaffinity="0" contype="0" priority="0"/>
+        </default>
 
     </default>
 
@@ -32,24 +36,24 @@
         <!-- FIXED CAMERA -->
         <body name="upper_camera" pos="-0.1 0 0.5" euler="0 2.356 1.5707963308">
             <camera name="upper_camera" mode="fixed" pos ="0 0 0" euler="0 3.1415926516 0"/>
-            <geom name="upper_camera" type="box" group="0" size="0.05 0.01 0.01" rgba="0.2 0.2 0.2 1"/>
+            <geom name="upper_camera" type="box" group="0" size="0.05 0.01 0.01" rgba="0.2 0.2 0.2 1" class="no_contact"/>
         </body>
 
         <!-- FLOATING BASE WITH MOCAP-->
         <body name="floating_1" mocap="true" pos="0 0 0.1" euler="0 0 0">
-            <geom name="floating_1" type="sphere" group="1" size="0.02" rgba="0.1 0.1 0.1 0.2" contype="0" conaffinity="0"/>
+            <geom name="floating_1" type="sphere" group="1" size="0.02" rgba="0.1 0.1 0.1 0.2" class="no_contact"/>
         </body>
 
         <body name="floating_2" pos="0 0 0.1" euler="0 0 0">
-            <geom name="floating_2" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1" contype="0" conaffinity="0"/>
+            <geom name="floating_2" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1" class="no_contact"/>
             <freejoint name="floating_2"/>
 
             <!-- PALM -->
             <body name="palm" pos="0 0 0" >
                 <inertial pos="0.0749802 -4.70306e-06 -0.0266387" quat="0.00107158 0.711377 -0.0010321 0.702809" mass="1.5008" diaginertia="0.00408874 0.0030361 0.00192975"/>
                 <joint name="1_w_roll" group="0" class="AK606" pos="0 0 0" axis="1 0 0" range="-12.5 12.5"/>
-                <geom name="palm" type="mesh" contype="1" conaffinity="0" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="palm_structure"/>
-                <geom name="palm_sensor" type="mesh" contype="1" conaffinity="0" group="2" density="0" rgba="0.75 0.75 1 1" mesh="palm_sensor"/>
+                <geom name="palm" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="palm_structure"/>
+                <geom name="palm_sensor" type="mesh" class="contact" group="2" density="0" rgba="0.75 0.75 1 1" mesh="palm_sensor"/>
                 <site name="palm_tof" group="0" size="0.001" pos="0.118 0 -0.0236" rgba="0 0 1 1" euler="0 1.57079633 0"/>
                 <site name="palm_fsr1" group="1" type="box" size="0.0148 0.01465 0.0001" pos="0.118 0.01465 -0.0236" rgba="0.4 0 0.9 0.1" euler="0 1.57079633 0"/>
                 <site name="palm_fsr2" group="1" type="box" size="0.0148 0.01465 0.0001" pos="0.118 -0.01465 -0.0236" rgba="0 0.4 0.9 0.1" euler="0 1.57079633 0"/>
@@ -57,20 +61,20 @@
                 <!-- PALM CAMERA -->
                 <body name="palm_camera" pos="0.105 0 0.04" euler="0 2.0 1.5707963308">
                     <camera name="palm_camera" mode="fixed" pos ="0 0 0" euler="0 3.1415926516 0"/>
-                    <geom name="palm_camera" type="box" group="1" size="0.01 0.01 0.005" rgba="0.2 0.2 0.2 1"/>
+                    <geom name="palm_camera" type="box" group="1" size="0.01 0.01 0.005" rgba="0.2 0.2 0.2 1" class="no_contact"/>
                 </body>
 
                 <!-- LEFT FINGER -->
                 <body name="l_mcr" pos="0.097 0.0565 -0.0236">
                     <inertial pos="0.0074427 1.8066e-09 0" quat="0.707107 -0.000458825 0.000458825 0.707107" mass="0.010716" diaginertia="6.50791e-07 4.9487e-07 3.46479e-07"/>
                     <joint name="2_l_mcr" group="1" class="XM430" pos="0 0 0" axis="0 1 0" range="-1 1" />
-                    <geom name="l_mcr" type="mesh" contype="0" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcr"/>
+                    <geom name="l_mcr" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcr"/>
 
                     <body name="l_mcp" pos="0.0185 0 0">
                         <inertial pos="0.015541 -2.172e-09 4.8274e-09" quat="0 0.707107 0 0.707107" mass="0.011831" diaginertia="1.0186e-06 8.576e-07 2.7094e-07"/>
                         <joint name="3_l_mcp" group="1" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                        <geom name="l_mcp" quat="0 1 0 0" type="mesh" contype="0" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcp_structure"/>
-                        <geom name="l_mcp_sensor" pos="0 -0.00001 0" quat="0 1 0 0" type="mesh" contype="0" conaffinity="1" group="2" density="0" rgba="1 0.75 0.75 1" mesh="mcp_sensor"/>
+                        <geom name="l_mcp" quat="0 1 0 0" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcp_structure"/>
+                        <geom name="l_mcp_sensor" pos="0 -0.00001 0" quat="0 1 0 0" type="mesh" class="contact" group="2" density="0" rgba="1 0.75 0.75 1" mesh="mcp_sensor"/>
                         <!-- <geom size="0.01 0.015" pos="0.015 0 0" quat="0.707388 0 0.706825 0" type="capsule" rgba="0.45 0.45 0.45 1"/> -->
                         <site name="l_mcp_tof" group="0" size="0.001" pos="0.02825 -0.01025 0" rgba="1 0 0 1" euler="1.57079633 0 0"/>
                         <site name="l_mcp_fsr1" group="1" type="box" size="0.008125 0.00975 0.0001" pos="0.021125 -0.01025 0" rgba="0.9 0.4 0 0.1" euler="1.57079633 0 0"/>
@@ -79,8 +83,8 @@
                         <body name="l_pip" pos="0.05 0 0">
                             <inertial pos="0.012348 -2.7466e-09 -4.6495e-09" quat="0 0.707107 0 0.707107" mass="0.010593" diaginertia="6.35e-07 4.7964e-07 2.2485e-07"/>
                             <joint name="4_l_pip" group="1" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                            <geom name="l_pip" quat="0 1 0 0" type="mesh" contype="0" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="pip_structure"/>
-                            <geom name="l_pip_sensor" pos="0 -0.00001 0" quat="0 1 0 0" type="mesh" contype="0" conaffinity="1" group="2" density="0" rgba="1 0.75 0.75 1" mesh="pip_sensor"/>
+                            <geom name="l_pip" quat="0 1 0 0" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="pip_structure"/>
+                            <geom name="l_pip_sensor" pos="0 -0.00001 0" quat="0 1 0 0" type="mesh" class="contact" group="2" density="0" rgba="1 0.75 0.75 1" mesh="pip_sensor"/>
                             <!-- <geom size="0.01 0.025" pos="0.025 0 0" quat="0.707388 0 0.706825 0" type="capsule" rgba="0.45 0.45 0.45 1"/> -->
                             <site name="l_pip_tof" group="0" size="0.001" pos="0.024 -0.00975 0" rgba="1 0 0 1" euler="1.57079633 0 0"/>
                             <site name="l_pip_fsr1" group="1" type="box" size="0.00525 0.00925 0.0001" pos="0.01875 -0.00975 0" rgba="0.9 0.4 0 0.1" euler="1.57079633 0 0"/>
@@ -89,7 +93,7 @@
                             <body name="l_dip" pos="0.04 0 0">
                                 <inertial pos="0.022019 -0.0011798 9.2257e-05" quat="0.559785 0.00180072 -0.00151435 0.828635" mass="0.027278" diaginertia="1.18481e-06 1.169e-06 9.71445e-07"/>
                                 <joint name="5_l_dip" group="1" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                                <geom name="l_dip" quat="0 1 0 0" type="mesh" contype="0" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip" condim="6" priority="1" friction="1 0.01 0.01"/>
+                                <geom name="l_dip" quat="0 1 0 0" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip"/>
                                 <site name="l_dip_tof1" group="0" size="0.001" pos="0.035 0.008 0.00782" rgba="1 0 0 1" euler="0 1.57079633 0"/>
                                 <site name="l_dip_tof2" group="0" size="0.001" pos="0.0243 0 0.00735" rgba="1 0 0 1" euler="1.57079633 0 0"/>
                                 <site name="l_dip_tof3" group="0" size="0.001" pos="0.035 0.008 -0.00782" rgba="1 0 0 1" euler="0 1.57079633 0"/>
@@ -98,7 +102,7 @@
 
                                 <body name="l_dip_tip" pos="0.0325 0 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
-                                    <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8" contype="1" conaffinity="1" condim="6" priority="1" friction="1 0.01 0.01"/>
+                                    <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8" class="contact"/>
                                     <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
@@ -110,13 +114,13 @@
                 <body name="r_mcr" pos="0.097 -0.0565 -0.0236">
                     <inertial pos="0.0074427 1.8066e-09 0" quat="0.707107 -0.000458825 0.000458825 0.707107" mass="0.010716" diaginertia="6.50791e-07 4.9487e-07 3.46479e-07"/>
                     <joint name="6_r_mcr" group="2" class="XM430" pos="0 0 0" axis="0 1 0" range="-1 1" /> <!-- Reflected Inertia: 9.93E-6*212.6**2-->
-                    <geom name="r_mcr" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcr"/>
+                    <geom name="r_mcr" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcr"/>
 
                     <body name="r_mcp" pos="0.0185 0 0">
                         <inertial pos="0.015541 -2.172e-09 4.8274e-09" quat="0 0.707107 0 0.707107" mass="0.011831" diaginertia="1.0186e-06 8.576e-07 2.7094e-07"/>
                         <joint name="7_r_mcp" group="2" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                        <geom name="r_mcp" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcp_structure"/>
-                        <geom name="r_mcp_sensor" pos="0 0.00001 0" type="mesh" contype="1" conaffinity="1" group="2" density="0" rgba="0.75 1 0.75 1" mesh="mcp_sensor"/>
+                        <geom name="r_mcp" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="mcp_structure"/>
+                        <geom name="r_mcp_sensor" pos="0 0.00001 0" type="mesh" class="contact" group="2" density="0" rgba="0.75 1 0.75 1" mesh="mcp_sensor"/>
                         <!-- <geom size="0.01 0.015" pos="0.015 0 0" quat="0.707388 0 0.706825 0" type="capsule" rgba="0.45 0.45 0.45 1"/> -->
                         <site name="r_mcp_tof" group="0" size="0.001" pos="0.02825 0.01025 0" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
                         <site name="r_mcp_fsr1" group="1" type="box" size="0.008125 0.00975 0.0001" pos="0.021125 0.01025 0" rgba="0.4 0.9 0 0.1" euler="-1.57079633 0 0"/>
@@ -125,8 +129,8 @@
                         <body name="r_pip" pos="0.05 0 0">
                             <inertial pos="0.012348 -2.7466e-09 -4.6495e-09" quat="0 0.707107 0 0.707107" mass="0.010593" diaginertia="6.35e-07 4.7964e-07 2.2485e-07"/>
                             <joint name="8_r_pip" group="2" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                            <geom name="r_pip" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="pip_structure"/>
-                            <geom name="r_pip_sensor" pos="0 0.00001 0" type="mesh" contype="1" conaffinity="1" group="2" density="0" rgba="0.75 1 0.75 1" mesh="pip_sensor"/>
+                            <geom name="r_pip" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="pip_structure"/>
+                            <geom name="r_pip_sensor" pos="0 0.00001 0" type="mesh" class="contact" group="2" density="0" rgba="0.75 1 0.75 1" mesh="pip_sensor"/>
                             <!-- <geom size="0.01 0.025" pos="0.025 0 0" quat="0.707388 0 0.706825 0" type="capsule" rgba="0.45 0.45 0.45 1"/> -->
                             <site name="r_pip_tof" group="0" size="0.001" pos="0.024 0.00975 0" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
                             <site name="r_pip_fsr1" group="1" type="box" size="0.00525 0.00925 0.0001" pos="0.01875 0.00975 0" rgba="0.4 0.9 0 0.1" euler="-1.57079633 0 0"/>
@@ -135,7 +139,7 @@
                             <body name="r_dip" pos="0.04 0 0">
                                 <inertial pos="0.022019 -0.0011798 9.2257e-05" quat="0.559785 0.00180072 -0.00151435 0.828635" mass="0.027278" diaginertia="1.18481e-06 1.169e-06 9.71445e-07"/>
                                 <joint name="9_r_dip" group="2" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
-                                <geom name="r_dip" type="mesh" contype="1" conaffinity="1" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip" condim="6" priority="1" friction="1 0.01 0.01"/>
+                                <geom name="r_dip" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip"/>
                                 <site name="r_dip_tof1" group="0" size="0.001" pos="0.035 -0.008 -0.00782" rgba="0 1 0 1" euler="0 1.57079633 0"/>
                                 <site name="r_dip_tof2" group="0" size="0.001" pos="0.0243 0 -0.00735" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
                                 <site name="r_dip_tof3" group="0" size="0.001" pos="0.035 -0.008 0.00782" rgba="0 1 0 1" euler="0 1.57079633 0"/>
@@ -144,7 +148,7 @@
 
                                 <body name="r_dip_tip" pos="0.0325 0 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
-                                    <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" contype="1" conaffinity="1" condim="6" priority="1" friction="1 0.01 0.01"/>
+                                    <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
                                     <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
