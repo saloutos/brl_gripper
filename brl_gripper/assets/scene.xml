@@ -1,8 +1,11 @@
 <mujoco model="scene">
 
   <include file="hand.xml"/>
-  <option cone="elliptic" tolerance="1e-10" timestep="0.001" impratio="1"/>
 
+  <option cone="elliptic" tolerance="1e-10" impratio="5" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">
+    <flag contact="enable" override="disable" multiccd="disable"/>
+  </option>
+  
   <include file="visual.xml"/>
 
   <asset>
