@@ -15,7 +15,7 @@ init_settings = termios.tcgetattr(sys.stdin)
 xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
 
-hw_mode = bg.HardwareEnable.NO_HW
+hw_mode = bg.HardwareEnable.FINGERS_ONLY
 if hw_mode == bg.HardwareEnable.NO_HW:
     mj_model = mj.MjModel.from_xml_path(xml_path+"_with_object.xml")
 else:

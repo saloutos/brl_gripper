@@ -115,9 +115,17 @@ class FingertipSensorData(SensorData):
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
-        self.contact_force_raw = new_data[0]
-        self.contact_angle_raw = new_data[1]
-        self.tof_raw = new_data[2]
+        # gotta put key logic in here, hard coded for now
+        if len(new_data) == 1:
+            self.tof_raw = new_data[0]
+        elif len(new_data) == 2:
+            self.contact_force_raw = new_data[0]
+            self.contact_angle_raw = new_data[1]
+        elif len(new_data) == 3:
+            self.contact_force_raw = new_data[0]
+            self.contact_angle_raw = new_data[1]
+            self.tof_raw = new_data[2]
+
     def update_raw_data_from_sim(self, new_data):
         # new data should come in as dict with mujoco sensor names and data as arrays
         sim_force_data = new_data['force']
@@ -449,6 +457,15 @@ class GripperData:
     def update_all_raw_sensor_data_from_hw(self, all_data={}):
         for key in self.sensors.keys():
             self.sensors[key].update_raw_data_from_hw(all_data[key])
+
+    #********* for streaming pressure and sys data with 2 CAN messages ****************
+    def update_some_raw_sensor_data_from_hw(self, some_data = {}):
+        for key in self.sensors.keys():
+            if key in some_data: #if data is coming from two separate can messages, update the values for the keys we want to update
+                self.sensors[key].update_raw_data_from_hw(some_data[key])
+
+    #********* for streaming pressure and sys data with 2 CAN messages ****************
+
     def update_all_raw_sensor_data_from_sim(self, all_data={}):
         for key in self.sensors.keys():
             self.sensors[key].update_raw_data_from_sim(all_data[key])
@@ -463,7 +480,7 @@ class GripperData:
         for i in range(ng):
             # set some defaults for all geoms here
             scene.geoms[i].dataid       = -1
-            scene.geoms[i].texid        = -1
+            # scene.geoms[i].texid        = -1
             scene.geoms[i].specular     = 0.5
             scene.geoms[i].shininess    = 0.5
         scene.ngeom += ng

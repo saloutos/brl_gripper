@@ -312,6 +312,12 @@ class GripperPlatform:
                             elif (can_message_1.arbitration_id == SENSOR_DATA):
                                 raw_sensor_data = self.unpack_sensors(can_message_1.data)
                                 self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data)
+                            elif (can_message_1.arbitration_id == PRSSENSOR_DATA):
+                                raw_sensor_data = self.unpack_prssensors(can_message_1.data)
+                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
+                            elif (can_message_1.arbitration_id == SYSSENSOR_DATA):
+                                raw_sensor_data = self.unpack_syssensors(can_message_1.data)
+                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data) 
                     if (can_message_2 is not None):
                         if(can_message_2.data[0] == 0 and can_message_2.data[1] == 0 and can_message_2.data[2] == 0 and can_message_2.data[3] == 0):
                             print("Error Cleared!")
@@ -663,3 +669,139 @@ class GripperPlatform:
                     "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]}
 
         return all_data
+
+    # unpacking received sensor data message from gripper with just pressure sensors
+    def unpack_prssensors(self, msg):
+
+        # fingertip sensors
+        pressure_raw1 = np.zeros((1,8))
+        pressure_raw2 = np.zeros((1,8))
+        for i in range(len(pressure_raw1)):
+            pressure_raw1[i] = (msg[i*4 + 3] << 24) | (msg[i*4 + 2] << 16) | (msg[i*4 + 1] << 8) | msg[i*4]
+
+        for i in range(len(pressure_raw2)):
+            pressure_raw2[i] = (msg[i*4 + 3 + 32] << 24) | (msg[i*4 + 2 + 32] << 16) | (msg[i*4 + 1 + 32] << 8) | msg[i*4 + 32]
+
+
+        fx_1,fy_1,fz_1,theta_1,phi_1 = self.evaluate_sensor_model(pressure_raw1,"1")
+        fx_2,fy_2,fz_2,theta_2,phi_2 = self.evaluate_sensor_model(pressure_raw1,"2")
+
+        # raw values for fingertip sensors
+        left_dip_force = np.array([fx_1, fy_1, fz_1])
+        left_dip_angle = np.array([theta_1, phi_1])
+        right_dip_force = np.array([fx_2, fy_2, fz_2])
+        right_dip_angle = np.array([theta_2, phi_2])
+        # left_dip_tof = np.array([0,0,0,0,0]) # left 0:4
+        # right_dip_tof = np.array([0,0,0,0,0]) # right 0:4
+
+        # # raw values for palm sensor
+        # palm_tof = np.array([0])
+        # palm_fsr1 = np.array([0])
+        # palm_fsr2 = np.array([0])
+        # palm_fsr = np.array([palm_fsr1, palm_fsr2])
+
+        # # raw values for phalange sensors
+        # left_mcp_tof = np.array([0]) # left mcp
+        # left_mcp_fsr1 =  np.array([0])
+        # left_mcp_fsr2 = np.array([0])
+        # left_mcp_fsr = np.array([left_mcp_fsr1, left_mcp_fsr2])
+
+        # left_pip_tof = np.array([0]) # left pip
+        # left_pip_fsr1 =  np.array([0])
+        # left_pip_fsr2 = np.array([0])
+        # left_pip_fsr = np.array([left_pip_fsr1, left_pip_fsr2])
+
+        # right_mcp_tof = np.array([0]) # right mcp
+        # right_mcp_fsr1 = np.array([0])
+        # right_mcp_fsr2 = np.array([0])
+        # right_mcp_fsr = np.array([right_mcp_fsr1, right_mcp_fsr2])
+
+        # right_pip_tof = np.array([0])# right pip
+        # right_pip_fsr1 = np.array([0])
+        # right_pip_fsr2 = np.array([0])
+        # right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
+
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = { "l_dip":    [left_dip_force, left_dip_angle],
+                    "r_dip":    [right_dip_force, right_dip_angle]
+                    # "palm":     [palm_fsr, palm_tof],
+                    # "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    # "l_pip":    [left_pip_fsr, left_pip_tof],
+                    # "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof],
+                    # "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    # "r_pip":    [right_pip_fsr, right_pip_tof],
+                    # "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]
+                    
+                    }
+
+        return all_data
+
+
+     #unpacking received sensor data message from gripper
+    def unpack_syssensors(self, msg):
+        # dip tof
+        left_dip_tof = np.array([msg[0],msg[1],msg[2],msg[3],msg[4]]) # left 0:4
+        right_dip_tof = np.array([msg[5],msg[6],msg[7],msg[8],msg[9]]) # right 0:4
+        
+        # raw values for palm sensor
+        palm_tof = np.array([msg[10]])
+        palm_fsr1 = (msg[11] << 4) | (msg[12] >> 4)
+        palm_fsr2 = ((msg[12] & 0x0F) << 8) | msg[13]
+        palm_fsr = np.array([palm_fsr1, palm_fsr2])
+
+        # raw values for phalange sensors
+        left_mcp_tof = np.array([msg[14]]) # left mcp
+        left_mcp_fsr1 =  (msg[15] << 4) | (msg[16] >> 4)
+        left_mcp_fsr2 = ((msg[16] & 0x0F) << 8) | msg[17]
+        left_mcp_fsr = np.array([left_mcp_fsr1, left_mcp_fsr2])
+
+        left_pip_tof = np.array([msg[18]]) # left pip
+        left_pip_fsr1 =  (msg[19] << 4) | (msg[20] >> 4)
+        left_pip_fsr2 = ((msg[20] & 0x0F) << 8) | msg[21]
+        left_pip_fsr = np.array([left_pip_fsr1, left_pip_fsr2])
+
+        right_mcp_tof = np.array([msg[22]]) # right mcp
+        right_mcp_fsr1 =  (msg[23] << 4) | (msg[24] >> 4)
+        right_mcp_fsr2 = ((msg[24] & 0x0F) << 8) | msg[25]
+        right_mcp_fsr = np.array([right_mcp_fsr1, right_mcp_fsr2])
+
+        right_pip_tof = np.array([msg[26]]) # right pip
+        right_pip_fsr1 =  (msg[27] << 4) | (msg[28] >> 4)
+        right_pip_fsr2 = ((msg[28] & 0x0F) << 8) | msg[29]
+        right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
+
+        
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = {
+                    "l_dip":    [left_dip_tof],
+                    "r_dip":    [right_dip_tof],
+                    "palm":     [palm_fsr, palm_tof],
+                    "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    "l_pip":    [left_pip_fsr, left_pip_tof],
+                    "l_dip":    [left_dip_tof],
+                    "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    "r_pip":    [right_pip_fsr, right_pip_tof],
+                    "r_dip":    [right_dip_tof]}
+
+        return all_data
+
+    #evaluate model. take in 8 pressure values and predict 3 axis force and contact location
+    def evaluate_sensor_model(self, pressure_vals, sensor_value):
+
+        if sensor_value == "1":
+            #evaluate model and return values for sensor 1
+            return np.array([0,0,0.05,0,0])
+
+        elif sensor_value =="2":
+            #evaluate model and return values for sensor 2
+            return np.array([0,0,0,10,10])
+
+        else:
+            print("sensor number is wrong")
+
+
+        
