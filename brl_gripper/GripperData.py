@@ -340,7 +340,9 @@ class GripperData:
         self.kinematics['base'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
         self.kinematics['l_dip_tip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame (for mocap body)
         self.kinematics['r_dip_tip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))}
-        
+        self.kinematics['l_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+        self.kinematics['l_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+
         # TODO: this doesn't feel like the right way to do this
         self.kinematics['base_des'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # desired base pos, R in world frame (for mocap body)
 

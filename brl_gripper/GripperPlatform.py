@@ -365,6 +365,16 @@ class GripperPlatform:
         self.gr_data.kinematics['l_dip_tip']['R'] = l_dip_tip_R
         self.gr_data.kinematics['r_dip_tip']['p'] = r_dip_tip_p
         self.gr_data.kinematics['r_dip_tip']['R'] = r_dip_tip_R
+
+        l_dip_force_p = self.mj_data.site('l_dip_force').xpos
+        l_dip_force_R = self.mj_data.site('l_dip_force').xmat.reshape((3,3))
+        r_dip_force_p = self.mj_data.site('r_dip_force').xpos
+        r_dip_force_R = self.mj_data.site('r_dip_force').xmat.reshape((3,3))
+        self.gr_data.kinematics['l_dip_force']['p'] = l_dip_force_p
+        self.gr_data.kinematics['l_dip_force']['R'] = l_dip_force_R
+        self.gr_data.kinematics['r_dip_force']['p'] = r_dip_force_p
+        self.gr_data.kinematics['r_dip_force']['R'] = r_dip_force_R
+
         # get fingertip jacobians relative to wrist
         # TODO: could make this a little more robust
         Jacp = np.zeros((3,self.mj_model.nv))
