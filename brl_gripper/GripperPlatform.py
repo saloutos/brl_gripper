@@ -418,6 +418,7 @@ class GripperPlatform:
                 self.gr_data.joints[key].tau = self.mj_data.joint(key).qfrc_actuator
             # get contact location data for fingertips
             # TODO: should we just do this for phalanges too?
+            # TODO: this is now stored above, should just use that?
             l_contact = []
             r_contact = []
             l_contact_R = self.mj_data.site('l_dip_force').xmat.reshape((3,3))

@@ -166,6 +166,8 @@ class FingertipSensorData(SensorData):
         self.dist = (self.tof_raw/1000.0) - self.dist_offset  # convert mm to m, apply offset
     # visualization of hardware data
     def sync_data_to_viewer(self, scene, start_idx):
+        # TODO: check self.kinematics, where is it set and is rotation matrix correct?
+
         idx = start_idx
         # visualize data for 5 ToF sensors
         for t in range(5):
