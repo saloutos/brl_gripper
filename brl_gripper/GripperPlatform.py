@@ -366,14 +366,19 @@ class GripperPlatform:
         self.gr_data.kinematics['r_dip_tip']['p'] = r_dip_tip_p
         self.gr_data.kinematics['r_dip_tip']['R'] = r_dip_tip_R
         # get fingertip jacobians relative to wrist
+        # TODO: could make this a little more robust
         Jacp = np.zeros((3,self.mj_model.nv))
         JacR = np.zeros((3,self.mj_model.nv))
         mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, l_dip_tip_p, self.mj_model.body('l_dip_tip').id)
-        self.gr_data.kinematics['l_dip_tip']['Jacp'] = Jacp[:,1:5].copy()
-        self.gr_data.kinematics['l_dip_tip']['JacR'] = JacR[:,1:5].copy()
+        start_idx = self.mj_model.joint('2_l_mcr').dofadr[0]
+        stop_idx = start_idx + 4
+        self.gr_data.kinematics['l_dip_tip']['Jacp'] = Jacp[:,start_idx:stop_idx].copy()
+        self.gr_data.kinematics['l_dip_tip']['JacR'] = JacR[:,start_idx:stop_idx].copy()
         mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, r_dip_tip_p, self.mj_model.body('r_dip_tip').id)
-        self.gr_data.kinematics['r_dip_tip']['Jacp'] = Jacp[:,5:9].copy()
-        self.gr_data.kinematics['r_dip_tip']['JacR'] = JacR[:,5:9].copy()
+        start_idx = self.mj_model.joint('6_r_mcr').dofadr[0]
+        stop_idx = start_idx + 4
+        self.gr_data.kinematics['r_dip_tip']['Jacp'] = Jacp[:,start_idx:stop_idx].copy()
+        self.gr_data.kinematics['r_dip_tip']['JacR'] = JacR[:,start_idx:stop_idx].copy()
         # update sensor kinematics
         # TODO: better way to do this? initialize with corresponding site name for kinematics?
         sites = ['palm_tof', 'l_mcp_tof', 'l_pip_tof', 'l_dip_force', 'r_mcp_tof', 'r_pip_tof', 'r_dip_force']
