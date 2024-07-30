@@ -2,3 +2,5 @@ include README.md
 include brl_gripper/assets/*.xml
 include brl_gripper/assets/meshes/*.STL
 include brl_gripper/utils/can_config.yaml
+include brl_gripper/assets/sensor_training/experiments/2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005/*
+include brl_gripper/assets/sensor_training/experiments/2024-07-25_14-29-20_E8_7_8_RNN/*

@@ -33,6 +33,7 @@ class JointData:
                 self.name+"_q_des",self.name+"_qd_des",self.name+"_tau_ff",
                 self.name+"_tau_command"]
 
+#TODO: add dictionary for value within the sensor data 
 # sensor data classes
 class SensorData:
     def __init__(self, name=""):

@@ -18,6 +18,11 @@ from .utils.can_utils import *
 from .GripperData import *
 from .utils import UTILS_DIR
 from .assets import ASSETS_DIR
+from .assets.sensor_training.run_model import *
+ #TODO: aggregate real time deploy and datasets file 
+
+
+#TODO: add way to modify the model we're using externally
 
 # define possible platform modes
 class PlatformMode(Enum):
@@ -34,11 +39,15 @@ class HardwareEnable(Enum):
     WRIST_ONLY     = 2 #[False, True] # just for completeness
     FINGERS_WRIST  = 3 #[True, True]
 
+class SensorDataMode(Enum):
+    NO_PRESSURE_VALS = 0
+    RAW_PRESSURE_VALS  = 1
+
 # TODO: other defines here? other parameters or constants?
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
@@ -62,6 +71,16 @@ class GripperPlatform:
                 self.mode = PlatformMode.HW_WITH_VIS
             else:
                 self.mode = PlatformMode.HW_NO_VIS
+
+            if sensor_mode: #could add names in a separate config file instead of hardcoding here
+                rnn_model_fname_lsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
+                self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
+                self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
+
+                rnn_model_fname_rsensor = "2024-07-25_14-29-20_E8_7_8_RNN"
+                self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
+                self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
+
         else:
             if self.viewer_enable:
                 self.mode = PlatformMode.SIM_WITH_VIS
@@ -674,8 +693,8 @@ class GripperPlatform:
     def unpack_prssensors(self, msg):
 
         # fingertip sensors
-        pressure_raw1 = np.zeros((1,8))
-        pressure_raw2 = np.zeros((1,8))
+        pressure_raw1 = np.zeros((8,))
+        pressure_raw2 = np.zeros((8,))
         for i in range(len(pressure_raw1)):
             pressure_raw1[i] = (msg[i*4 + 3] << 24) | (msg[i*4 + 2] << 16) | (msg[i*4 + 1] << 8) | msg[i*4]
 
@@ -683,8 +702,8 @@ class GripperPlatform:
             pressure_raw2[i] = (msg[i*4 + 3 + 32] << 24) | (msg[i*4 + 2 + 32] << 16) | (msg[i*4 + 1 + 32] << 8) | msg[i*4 + 32]
 
 
-        fx_1,fy_1,fz_1,theta_1,phi_1 = self.evaluate_sensor_model(pressure_raw1,"1")
-        fx_2,fy_2,fz_2,theta_2,phi_2 = self.evaluate_sensor_model(pressure_raw1,"2")
+        fx_1,fy_1,fz_1,theta_1,phi_1 = self.evaluate_sensor_model(pressure_raw1,"l")
+        fx_2,fy_2,fz_2,theta_2,phi_2 = self.evaluate_sensor_model(pressure_raw2,"r")
 
         # raw values for fingertip sensors
         left_dip_force = np.array([fx_1, fy_1, fz_1])
@@ -792,16 +811,25 @@ class GripperPlatform:
     #evaluate model. take in 8 pressure values and predict 3 axis force and contact location
     def evaluate_sensor_model(self, pressure_vals, sensor_value):
 
-        if sensor_value == "1":
+        if sensor_value == "l":
             #evaluate model and return values for sensor 1
-            return np.array([0,0,0.05,0,0])
+            sensor_data_left, h_left = run_binned_rnn(pressure_vals,self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor, self.h_lsensor)
+            self.h_lsensor = h_left
+            #have to convert fx, fy, fz into sensor frame to stay consistent 
+            # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_left) + "]")
+            return sensor_data_left[0:-1]
+            # return np.array([0,0,0.05,0,0])
 
-        elif sensor_value =="2":
+        elif sensor_value =="r":
             #evaluate model and return values for sensor 2
-            return np.array([0,0,0,10,10])
+            sensor_data_right, h_right = run_binned_rnn(pressure_vals,self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor, self.h_rsensor)
+            self.h_rsensor = h_right
+            # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_right) + "]")
+            return sensor_data_right[0:-1]
+            # return np.array([0,0,0,10,10])
 
         else:
-            print("sensor number is wrong")
+            print("sensor type is wrong")
 
 
         
