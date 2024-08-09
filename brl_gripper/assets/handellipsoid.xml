@@ -1,4 +1,4 @@
-<mujoco model="hand">
+<mujoco model="handellipsoid">
 
     <compiler angle="radian" autolimits="true"/>
 
@@ -28,7 +28,8 @@
         <mesh name="mcp_sensor"     file="meshes/right_finger_MCP_sensor.STL"/>
         <mesh name="pip_structure"  file="meshes/right_finger_PIP_structure.STL"/>
         <mesh name="pip_sensor"     file="meshes/right_finger_PIP_sensor.STL"/>
-        <mesh name="dip"            file="meshes/right_finger_DIP_block_no_sphere.STL"/>
+        <mesh name="dip"            file="meshes/right_finger_DIP_block_no_ellipsoid.STL"/>
+
     </asset>
 
     <worldbody>
@@ -100,11 +101,11 @@
                                 <site name="l_dip_tof4" group="0" size="0.001" pos="0.0243 0 -0.00735" rgba="1 0 0 1" euler="1.57079633 0 0"/>
                                 <site name="l_dip_tof5" group="0" size="0.001" pos="0.034 0.011 0" rgba="1 0 0 1" euler="-1.57079633 0 0"/>
 
-                                <!-- <body name="l_dip_tip" pos="0.0325 0 0">
+                                <body name="l_dip_tip" pos="0.03922 0.00234 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
-                                    <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8" class="contact"/>
-                                    <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
-                                </body> -->
+                                    <geom name="l_dip_tip" type="ellipsoid" size="0.0106 0.00635 0.009" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
+                                    <site name="l_dip_force" group="2" size="0.001" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
+                                </body>
                             </body>
                         </body>
                     </body>
@@ -146,11 +147,11 @@
                                 <site name="r_dip_tof4" group="0" size="0.001" pos="0.0243 0 0.00735" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
                                 <site name="r_dip_tof5" group="0" size="0.001" pos="0.034 -0.011 0" rgba="0 1 0 1" euler="1.57079633 0 0"/>
 
-                                <!-- <body name="r_dip_tip" pos="0.0325 0 0">
+                                <body name="r_dip_tip" pos="0.03922 -0.00234 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
-                                    <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
+                                    <geom name="r_dip_tip" type="ellipsoid" size="0.0106 0.00635 0.009" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
                                     <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
-                                </body> -->
+                                </body>
                             </body>
                         </body>
                     </body>

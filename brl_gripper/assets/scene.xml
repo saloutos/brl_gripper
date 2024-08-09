@@ -1,6 +1,6 @@
 <mujoco model="scene">
 
-  <include file="hand.xml"/>
+  <include file="handellipsoid.xml"/>
 
   <option cone="elliptic" tolerance="1e-10" impratio="5" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">
     <flag contact="enable" override="disable" multiccd="disable"/>
