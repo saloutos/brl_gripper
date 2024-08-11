@@ -1,0 +1,48 @@
+{
+    "experiment_desc": "E8_7_8_RNN",
+    "sensor_name": "E8_7_8",
+    "device": "cuda",
+    "dataset_name": "RNNSensorDataset",
+    "model_name": "BinnedRNNSensorNet",
+    "loss_name": "get_binned_fullout_rnn_loss",
+    "val_loss_name": "masked_angle_loss",
+    "optimizer_name": "Adam",
+    "dataset_kwargs": {
+        "history_length": 512,
+        "history_period": 1
+    },
+    "model_kwargs": {
+        "hidden_size": 48,
+        "num_layers": 1,
+        "linear_layers": [
+            48
+        ],
+        "dropout_p": 0.2,
+        "bin_width": 0.09817477042468103,
+        "full_out": true
+    },
+    "loss_kwargs": {
+        "theta_range": [
+            -0.7853981633974483,
+            0.7853981633974483
+        ],
+        "phi_range": [
+            -2.356194490192345,
+            0.7853981633974483
+        ],
+        "bin_width": 0.09817477042468103,
+        "contact_weight": 10,
+        "last_k": 64,
+        "percent_force_loss": false
+    },
+    "training_kwargs": {
+        "lr": 0.0005,
+        "n_train_epochs": 1000,
+        "batch_size": 500,
+        "val_epoch_freq": 10,
+        "checkpoint_freq": 10,
+        "show_pbar": true,
+        "early_stopping_patience": 200,
+        "weight_path": null
+    }
+}

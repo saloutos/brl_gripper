@@ -18,6 +18,11 @@ from .utils.can_utils import *
 from .GripperData import *
 from .utils import UTILS_DIR
 from .assets import ASSETS_DIR
+from .assets.sensor_training.run_model import *
+ #TODO: aggregate real time deploy and datasets file 
+
+
+#TODO: add way to modify the model we're using externally
 
 # define possible platform modes
 class PlatformMode(Enum):
@@ -34,11 +39,15 @@ class HardwareEnable(Enum):
     WRIST_ONLY     = 2 #[False, True] # just for completeness
     FINGERS_WRIST  = 3 #[True, True]
 
+class SensorDataMode(Enum):
+    NO_PRESSURE_VALS = 0
+    RAW_PRESSURE_VALS  = 1
+
 # TODO: other defines here? other parameters or constants?
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
@@ -62,6 +71,20 @@ class GripperPlatform:
                 self.mode = PlatformMode.HW_WITH_VIS
             else:
                 self.mode = PlatformMode.HW_NO_VIS
+
+            if sensor_mode: #could add names in a separate config file instead of hardcoding here
+                rnn_model_fname_lsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
+                # rnn_model_fname_lsensor = "2024-07-31_15-11-33_E10_07_30_RNN"
+
+                self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
+                self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
+
+                rnn_model_fname_rsensor = "2024-08-08_21-14-39_E10"
+                # rnn_model_fname_rsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
+
+                self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
+                self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
+
         else:
             if self.viewer_enable:
                 self.mode = PlatformMode.SIM_WITH_VIS
@@ -312,6 +335,12 @@ class GripperPlatform:
                             elif (can_message_1.arbitration_id == SENSOR_DATA):
                                 raw_sensor_data = self.unpack_sensors(can_message_1.data)
                                 self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data)
+                            elif (can_message_1.arbitration_id == PRSSENSOR_DATA):
+                                raw_sensor_data = self.unpack_prssensors(can_message_1.data)
+                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
+                            elif (can_message_1.arbitration_id == SYSSENSOR_DATA):
+                                raw_sensor_data = self.unpack_syssensors(can_message_1.data)
+                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data) 
                     if (can_message_2 is not None):
                         if(can_message_2.data[0] == 0 and can_message_2.data[1] == 0 and can_message_2.data[2] == 0 and can_message_2.data[3] == 0):
                             print("Error Cleared!")
@@ -679,3 +708,148 @@ class GripperPlatform:
                     "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]}
 
         return all_data
+
+    # unpacking received sensor data message from gripper with just pressure sensors
+    def unpack_prssensors(self, msg):
+
+        # fingertip sensors
+        pressure_raw1 = np.zeros((8,))
+        pressure_raw2 = np.zeros((8,))
+        for i in range(len(pressure_raw1)):
+            pressure_raw1[i] = (msg[i*4 + 3] << 24) | (msg[i*4 + 2] << 16) | (msg[i*4 + 1] << 8) | msg[i*4]
+
+        for i in range(len(pressure_raw2)):
+            pressure_raw2[i] = (msg[i*4 + 3 + 32] << 24) | (msg[i*4 + 2 + 32] << 16) | (msg[i*4 + 1 + 32] << 8) | msg[i*4 + 32]
+
+
+        fx_1,fy_1,fz_1,theta_1,phi_1 = self.evaluate_sensor_model(pressure_raw1,"l")
+        fx_2,fy_2,fz_2,theta_2,phi_2 = self.evaluate_sensor_model(pressure_raw2,"r")
+
+        # raw values for fingertip sensors
+        left_dip_force = np.array([fx_1, fy_1, fz_1])
+        left_dip_angle = np.array([theta_1, phi_1])
+        right_dip_force = np.array([fx_2, fy_2, fz_2])
+        right_dip_angle = np.array([theta_2, phi_2])
+        # left_dip_tof = np.array([0,0,0,0,0]) # left 0:4
+        # right_dip_tof = np.array([0,0,0,0,0]) # right 0:4
+
+        # # raw values for palm sensor
+        # palm_tof = np.array([0])
+        # palm_fsr1 = np.array([0])
+        # palm_fsr2 = np.array([0])
+        # palm_fsr = np.array([palm_fsr1, palm_fsr2])
+
+        # # raw values for phalange sensors
+        # left_mcp_tof = np.array([0]) # left mcp
+        # left_mcp_fsr1 =  np.array([0])
+        # left_mcp_fsr2 = np.array([0])
+        # left_mcp_fsr = np.array([left_mcp_fsr1, left_mcp_fsr2])
+
+        # left_pip_tof = np.array([0]) # left pip
+        # left_pip_fsr1 =  np.array([0])
+        # left_pip_fsr2 = np.array([0])
+        # left_pip_fsr = np.array([left_pip_fsr1, left_pip_fsr2])
+
+        # right_mcp_tof = np.array([0]) # right mcp
+        # right_mcp_fsr1 = np.array([0])
+        # right_mcp_fsr2 = np.array([0])
+        # right_mcp_fsr = np.array([right_mcp_fsr1, right_mcp_fsr2])
+
+        # right_pip_tof = np.array([0])# right pip
+        # right_pip_fsr1 = np.array([0])
+        # right_pip_fsr2 = np.array([0])
+        # right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
+
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = { "l_dip":    [left_dip_force, left_dip_angle],
+                    "r_dip":    [right_dip_force, right_dip_angle]
+                    # "palm":     [palm_fsr, palm_tof],
+                    # "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    # "l_pip":    [left_pip_fsr, left_pip_tof],
+                    # "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof],
+                    # "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    # "r_pip":    [right_pip_fsr, right_pip_tof],
+                    # "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]
+                    
+                    }
+
+        return all_data
+
+
+     #unpacking received sensor data message from gripper
+    def unpack_syssensors(self, msg):
+        # dip tof
+        left_dip_tof = np.array([msg[0],msg[1],msg[2],msg[3],msg[4]]) # left 0:4
+        right_dip_tof = np.array([msg[5],msg[6],msg[7],msg[8],msg[9]]) # right 0:4
+        
+        # raw values for palm sensor
+        palm_tof = np.array([msg[10]])
+        palm_fsr1 = (msg[11] << 4) | (msg[12] >> 4)
+        palm_fsr2 = ((msg[12] & 0x0F) << 8) | msg[13]
+        palm_fsr = np.array([palm_fsr1, palm_fsr2])
+
+        # raw values for phalange sensors
+        left_mcp_tof = np.array([msg[14]]) # left mcp
+        left_mcp_fsr1 =  (msg[15] << 4) | (msg[16] >> 4)
+        left_mcp_fsr2 = ((msg[16] & 0x0F) << 8) | msg[17]
+        left_mcp_fsr = np.array([left_mcp_fsr1, left_mcp_fsr2])
+
+        left_pip_tof = np.array([msg[18]]) # left pip
+        left_pip_fsr1 =  (msg[19] << 4) | (msg[20] >> 4)
+        left_pip_fsr2 = ((msg[20] & 0x0F) << 8) | msg[21]
+        left_pip_fsr = np.array([left_pip_fsr1, left_pip_fsr2])
+
+        right_mcp_tof = np.array([msg[22]]) # right mcp
+        right_mcp_fsr1 =  (msg[23] << 4) | (msg[24] >> 4)
+        right_mcp_fsr2 = ((msg[24] & 0x0F) << 8) | msg[25]
+        right_mcp_fsr = np.array([right_mcp_fsr1, right_mcp_fsr2])
+
+        right_pip_tof = np.array([msg[26]]) # right pip
+        right_pip_fsr1 =  (msg[27] << 4) | (msg[28] >> 4)
+        right_pip_fsr2 = ((msg[28] & 0x0F) << 8) | msg[29]
+        right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
+
+        
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = {
+                    "l_dip":    [left_dip_tof],
+                    "r_dip":    [right_dip_tof],
+                    "palm":     [palm_fsr, palm_tof],
+                    "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    "l_pip":    [left_pip_fsr, left_pip_tof],
+                    "l_dip":    [left_dip_tof],
+                    "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    "r_pip":    [right_pip_fsr, right_pip_tof],
+                    "r_dip":    [right_dip_tof]}
+
+        return all_data
+
+    #evaluate model. take in 8 pressure values and predict 3 axis force and contact location
+    def evaluate_sensor_model(self, pressure_vals, sensor_value):
+
+        if sensor_value == "l":
+            #evaluate model and return values for sensor 1
+            sensor_data_left, h_left = run_binned_rnn(pressure_vals,self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor, self.h_lsensor)
+            self.h_lsensor = h_left
+            #have to convert fx, fy, fz into sensor frame to stay consistent 
+            # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_left) + "]")
+            return sensor_data_left[0:-1]
+            # return np.array([0,0,0.05,0,0])
+
+        elif sensor_value =="r":
+            #evaluate model and return values for sensor 2
+            sensor_data_right, h_right = run_binned_rnn(pressure_vals,self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor, self.h_rsensor)
+            self.h_rsensor = h_right
+            print("[" + " ".join(f"{value:.8f}" for value in sensor_data_right) + "]")
+            return sensor_data_right[0:-1]
+            # return np.array([0,0,0,10,10])
+
+        else:
+            print("sensor type is wrong")
+
+
+        
