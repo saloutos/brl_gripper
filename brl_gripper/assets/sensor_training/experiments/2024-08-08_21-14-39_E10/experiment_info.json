@@ -1,6 +1,6 @@
 {
-    "experiment_desc": "E10_07_30_RNN",
-    "sensor_name": "E10_07_30",
+    "experiment_desc": "",
+    "sensor_name": "E10_8_8",
     "device": "cuda",
     "dataset_name": "RNNSensorDataset",
     "model_name": "BinnedRNNSensorNet",

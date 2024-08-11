@@ -79,7 +79,7 @@ class GripperPlatform:
                 self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
                 self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
 
-                rnn_model_fname_rsensor = "2024-07-31_15-11-33_E10_07_30_RNN"
+                rnn_model_fname_rsensor = "2024-08-08_21-14-39_E10"
                 # rnn_model_fname_rsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
 
                 self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
