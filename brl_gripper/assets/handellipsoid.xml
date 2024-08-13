@@ -178,8 +178,8 @@
         <exclude body1="r_pip"      body2="r_mcp"/>
         <exclude body1="l_dip"      body2="l_pip"/>
         <exclude body1="r_dip"      body2="r_pip"/>
-        <!-- <exclude body1="l_dip_tip"  body2="l_dip"/>
-        <exclude body1="r_dip_tip"  body2="r_dip"/> -->
+        <exclude body1="l_dip_tip"  body2="l_dip"/>
+        <exclude body1="r_dip_tip"  body2="r_dip"/>
     </contact>
 
     <sensor>
@@ -213,8 +213,8 @@
         <touch name="r_pip_fsr2"    site="r_pip_fsr2"/>
 
         <!-- FORCE SENSORS -->
-        <!-- <force name="l_dip_force"   site="l_dip_force"/>
-        <force name="r_dip_force"   site="r_dip_force"/> -->
+        <force name="l_dip_force"   site="l_dip_force"/>
+        <force name="r_dip_force"   site="r_dip_force"/>
     </sensor>
 
     <!-- ACTUATORS -->

@@ -73,14 +73,14 @@ class GripperPlatform:
                 self.mode = PlatformMode.HW_NO_VIS
 
             if sensor_mode: #could add names in a separate config file instead of hardcoding here
-                rnn_model_fname_lsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
-                # rnn_model_fname_lsensor = "2024-07-31_15-11-33_E10_07_30_RNN"
+                # rnn_model_fname_lsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
+                rnn_model_fname_lsensor = "2024-08-06_10-59-05_FA7"
 
                 self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
                 self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
 
-                rnn_model_fname_rsensor = "2024-08-08_21-14-39_E10"
-                # rnn_model_fname_rsensor = "2024-07-09_18-04-38_E9_6_38_and_E9_7_3_BinnedFulloutRNN_hd48_H512_k64_bpi32_lr0p0005"
+                # rnn_model_fname_rsensor = "2024-08-08_21-14-39_E10"
+                rnn_model_fname_rsensor = "2024-07-29_17-49-57_FA5_lowforce"
 
                 self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
                 self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
@@ -836,6 +836,7 @@ class GripperPlatform:
             sensor_data_left, h_left = run_binned_rnn(pressure_vals,self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor, self.h_lsensor)
             self.h_lsensor = h_left
             #have to convert fx, fy, fz into sensor frame to stay consistent 
+            # print("pressure left: ",pressure_vals)
             # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_left) + "]")
             return sensor_data_left[0:-1]
             # return np.array([0,0,0.05,0,0])
@@ -844,6 +845,7 @@ class GripperPlatform:
             #evaluate model and return values for sensor 2
             sensor_data_right, h_right = run_binned_rnn(pressure_vals,self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor, self.h_rsensor)
             self.h_rsensor = h_right
+            # print("pressure right: ",pressure_vals)
             print("[" + " ".join(f"{value:.8f}" for value in sensor_data_right) + "]")
             return sensor_data_right[0:-1]
             # return np.array([0,0,0,10,10])

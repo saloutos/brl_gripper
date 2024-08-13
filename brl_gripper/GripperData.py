@@ -245,7 +245,7 @@ class EllipsoidFingertipSensorData(SensorData):
         self.normal_force_threshold = 1.0
         # variables for visualization
         # NOTE: center of rubber sphere is origin of sensor frame
-        self.nominal_contact = np.array([0.0, 0.0, 0.001]) # ellipsoid default radius = 1mm
+        self.nominal_contact = np.array([0.0, 0.0, 0.01]) # ellipsoid default radius = 1mm #changed to 10mm  bc couldn't see it but that shouldn't be the case since it is being scaled...
         self.force_scale = 0.02
         self.tof_pos_offsets = np.array([[-0.0025, -0.00782, -0.008], # tof1
                                     [0.0082, -0.00735, 0.0], # tof2
@@ -276,9 +276,16 @@ class EllipsoidFingertipSensorData(SensorData):
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
-        self.contact_force_raw = new_data[0]
-        self.contact_angle_raw = new_data[1]
-        self.tof_raw = new_data[2]
+        # gotta put key logic in here, hard coded for now
+        if len(new_data) == 1:
+            self.tof_raw = new_data[0]
+        elif len(new_data) == 2:
+            self.contact_force_raw = new_data[0]
+            self.contact_angle_raw = new_data[1]
+        elif len(new_data) == 3:
+            self.contact_force_raw = new_data[0]
+            self.contact_angle_raw = new_data[1]
+            self.tof_raw = new_data[2]
     def update_raw_data_from_sim(self, new_data):
         # new data should come in as dict with mujoco sensor names and data as arrays
         sim_force_data = new_data['force']
@@ -292,7 +299,7 @@ class EllipsoidFingertipSensorData(SensorData):
         phi_deg = np.clip(np.rad2deg(phi_rad), self.phi_range[0], self.phi_range[1])
         self.contact_angle_raw = np.array([theta_deg, phi_deg])
         # force vector should be in frame that is normal to the surface of the ellipsoid
-        contact_vec_normal = 2*np.array(sim_contact_vec[0]/self.ellipse_params[0]**2,sim_contact_vec[1]/self.ellipse_params[1]**2,sim_contact_vec[2]/self.ellipse_params[2]**2) #find vector normal to surface at contact location
+        contact_vec_normal = 2*np.array([sim_contact_vec[0]/self.ellipse_params[0]**2,sim_contact_vec[1]/self.ellipse_params[1]**2,sim_contact_vec[2]/self.ellipse_params[2]**2]) #find vector normal to surface at contact location
         theta_rad_normal = np.arcsin(-contact_vec_normal[1])
         phi_rad_normal = np.arctan2(contact_vec_normal[0], contact_vec_normal[2])
         R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
@@ -317,7 +324,7 @@ class EllipsoidFingertipSensorData(SensorData):
         #calculate radius of vector (intersection between ellipsoid and line in direction of R_cont)
         contact_vec = self.line_ellipsoid_intersection(R_cont,self.ellipse_params)
         #calculate normal vector at contact point
-        contact_vec_normal = 2*np.array(contact_vec[0]/self.ellipse_params[0]**2,contact_vec[1]/self.ellipse_params[1]**2,contact_vec[2]/self.ellipse_params[2]**2) #find vector normal to surface at contact location
+        contact_vec_normal = 2*np.array([contact_vec[0]/self.ellipse_params[0]**2,contact_vec[1]/self.ellipse_params[1]**2,contact_vec[2]/self.ellipse_params[2]**2]) #find vector normal to surface at contact location
         theta_rad_normal = np.arcsin(-contact_vec_normal[1])
         phi_rad_normal = np.arctan2(contact_vec_normal[0], contact_vec_normal[2])
         R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
@@ -337,7 +344,7 @@ class EllipsoidFingertipSensorData(SensorData):
             self.contact_angle = (1.0-alpha)*self.contact_angle + alpha*self.contact_angle_raw
         else:
             self.contact_angle = (1.0-self.contact_angle_filter_alpha)*self.contact_angle + self.contact_angle_filter_alpha*self.contact_angle_raw
-    def line_ellipsoid_intersection(R_cont,ellipse_params):
+    def line_ellipsoid_intersection(self,R_cont,ellipse_params):
         p0 = np.array([0,0,0]) #a point on the line
         a = ellipse_params[0]
         b = ellipse_params[1]
@@ -394,33 +401,72 @@ class EllipsoidFingertipSensorData(SensorData):
         scene.geoms[idx].type = 100 # arrow
         scene.geoms[idx].size = np.array([0.002, 0.002, self.force_scale*np.linalg.norm(self.contact_force)]) # radius, radius, length in m
         # build contact frame from two angles
-        # calculate orientation of vector
-        theta_rad = np.deg2rad(self.contact_angle[0])
-        phi_rad = np.deg2rad(self.contact_angle[1])
-        R_theta = np.array([[1, 0, 0], [0, np.cos(theta_rad), -np.sin(theta_rad)], [0, np.sin(theta_rad), np.cos(theta_rad)]]) # Rx by theta
-        R_phi = np.array([[np.cos(phi_rad), 0, np.sin(phi_rad)], [0, 1, 0], [-np.sin(phi_rad), 0, np.cos(phi_rad)]]) # Ry by phi
-        R_cont = (R_phi @ R_theta @ self.nominal_contact).T
-        #calculate radius of vector (intersection between ellipsoid and line in direction of R_cont)
-        p_cont = self.line_ellipsoid_intersection(R_cont,self.ellipse_params)
-        #calculate normal vector at contact point
-        contact_vec_normal = 2*np.array(p_cont[0]/self.ellipse_params[0]**2,p_cont[1]/self.ellipse_params[1]**2,contact_vec[2]/self.ellipse_params[2]**2) #find vector normal to surface at contact location
-        theta_rad_normal = np.arcsin(-contact_vec_normal[1])
-        phi_rad_normal = np.arctan2(contact_vec_normal[0], contact_vec_normal[2])
-        R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
-        R_phi_normal = np.array([[np.cos(phi_rad_normal), 0, np.sin(phi_rad_normal)], [0, 1, 0], [-np.sin(phi_rad_normal), 0, np.cos(phi_rad_normal)]]) # Ry by phi
-        R_cont_normal = R_phi_normal @ R_theta_normal
+        theta = np.deg2rad(self.contact_angle[0])
+        phi = np.deg2rad(self.contact_angle[1])
+        R_theta = np.array([[1, 0, 0], [0, np.cos(theta), -np.sin(theta)], [0, np.sin(theta), np.cos(theta)]]) # Rx by theta
+        R_phi = np.array([[np.cos(phi), 0, np.sin(phi)], [0, 1, 0], [-np.sin(phi), 0, np.cos(phi)]]) # Ry by phi
+        R_cont = R_phi @ R_theta
+        p_cont = R_cont.dot(self.nominal_contact)
         scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(p_cont)
         # align z-axis geom frame with contact force direction!
         if np.linalg.norm(self.contact_force)>0.01:
-            z = self.kinematics[1] @ R_cont_normal @ (self.contact_force.reshape((3,1))/np.linalg.norm(self.contact_force))
+            z = self.kinematics[1] @ R_cont @ (self.contact_force.reshape((3,1))/np.linalg.norm(self.contact_force))
             y = np.cross(z.squeeze(), np.array([0, 0, 1]).squeeze()).reshape((3,1))
             x = np.cross(y.squeeze(), z.squeeze()).reshape((3,1))
             scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
         else:
-            scene.geoms[idx].mat = self.kinematics[1] @ R_cont_normal # full 3x3 matrix, not 9-vector
+            scene.geoms[idx].mat = self.kinematics[1] @ R_cont # full 3x3 matrix, not 9-vector
         scene.geoms[idx].rgba=np.array([1, 0, 1, 0.5])
         idx += 1
         return idx
+    # def sync_data_to_viewer(self, scene, start_idx):
+    #     # TODO: check self.kinematics, where is it set and is rotation matrix correct?
+    #     idx = start_idx
+    #     # visualize data for 5 ToF sensors
+    #     for t in range(5):
+    #         # line starts at pos, aligns with z-axis of sensor frame
+    #         scene.geoms[idx].type = 103 # line
+    #         scene.geoms[idx].size = np.array([4, 4, self.dist[t]]) # width in px, width in px, length in m
+    #         scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.tof_pos_offsets[t,:])
+    #         # align z-axis geom frame with tof sensor direction!
+    #         z = self.tof_signs[t]*self.kinematics[1][:,self.tof_axes[t]].reshape((3,1)) # should be unit vec already
+    #         y = np.cross(z.squeeze(), np.array([0, 1, 0]).squeeze()).reshape((3,1))
+    #         x = np.cross(y.squeeze(), z.squeeze()).reshape((3,1))
+    #         scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
+    #         scene.geoms[idx].rgba = np.array([1, 0.2, 0, 0.5])
+    #         idx += 1
+    #     # visualize force at contact location
+    #     # arrow starts at pos, aligns with z-axis of sensor frame
+    #     scene.geoms[idx].type = 100 # arrow
+    #     scene.geoms[idx].size = np.array([0.002, 0.002, self.force_scale*np.linalg.norm(self.contact_force)]) # radius, radius, length in m
+    #     # build contact frame from two angles
+    #     # calculate orientation of vector
+    #     theta_rad = np.deg2rad(self.contact_angle[0])
+    #     phi_rad = np.deg2rad(self.contact_angle[1])
+    #     R_theta = np.array([[1, 0, 0], [0, np.cos(theta_rad), -np.sin(theta_rad)], [0, np.sin(theta_rad), np.cos(theta_rad)]]) # Rx by theta
+    #     R_phi = np.array([[np.cos(phi_rad), 0, np.sin(phi_rad)], [0, 1, 0], [-np.sin(phi_rad), 0, np.cos(phi_rad)]]) # Ry by phi
+    #     R_cont = (R_phi @ R_theta @ self.nominal_contact).T
+    #     #calculate radius of vector (intersection between ellipsoid and line in direction of R_cont)
+    #     p_cont = self.line_ellipsoid_intersection(R_cont,self.ellipse_params)
+    #     #calculate normal vector at contact point
+    #     contact_vec_normal = 2*np.array([p_cont[0]/self.ellipse_params[0]**2,p_cont[1]/self.ellipse_params[1]**2,p_cont[2]/self.ellipse_params[2]**2]) #find vector normal to surface at contact location
+    #     theta_rad_normal = np.arcsin(-contact_vec_normal[1])
+    #     phi_rad_normal = np.arctan2(contact_vec_normal[0], contact_vec_normal[2])
+    #     R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
+    #     R_phi_normal = np.array([[np.cos(phi_rad_normal), 0, np.sin(phi_rad_normal)], [0, 1, 0], [-np.sin(phi_rad_normal), 0, np.cos(phi_rad_normal)]]) # Ry by phi
+    #     R_cont_normal = R_phi_normal @ R_theta_normal
+    #     scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(p_cont)
+    #     # align z-axis geom frame with contact force direction!
+    #     if np.linalg.norm(self.contact_force)>0.01:
+    #         z = self.kinematics[1] @ R_cont_normal @ (self.contact_force.reshape((3,1))/np.linalg.norm(self.contact_force))
+    #         y = np.cross(z.squeeze(), np.array([0, 0, 1]).squeeze()).reshape((3,1))
+    #         x = np.cross(y.squeeze(), z.squeeze()).reshape((3,1))
+    #         scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
+    #     else:
+    #         scene.geoms[idx].mat = self.kinematics[1] @ R_cont_normal # full 3x3 matrix, not 9-vector
+    #     scene.geoms[idx].rgba=np.array([1, 0, 1, 0.5])
+    #     idx += 1
+    #     return idx
 
 class PhalangeSensorData(SensorData):
     def __init__(self, name=""):
@@ -533,8 +579,8 @@ class GripperData:
                     JointData("6_r_mcr"),JointData("7_r_mcp"),JointData("8_r_pip"),JointData("9_r_dip")]    # right finger
             # list of sensors
         sensors = [PalmSensorData("palm"),                                                                 # palm
-                McpPhalangeSensorData("l_mcp"),PipPhalangeSensorData("l_pip"),FingertipSensorData("l_dip"),   # left finger
-                McpPhalangeSensorData("r_mcp"),PipPhalangeSensorData("r_pip"),FingertipSensorData("r_dip")]   # right finger
+                McpPhalangeSensorData("l_mcp"),PipPhalangeSensorData("l_pip"),EllipsoidFingertipSensorData("l_dip"),   # left finger
+                McpPhalangeSensorData("r_mcp"),PipPhalangeSensorData("r_pip"),EllipsoidFingertipSensorData("r_dip")]   # right finger
         # NOTE: these should match the names of the joints and sensors in the mujoco model
         # now, store in dicts so that we have named access
         self.joint_names = [joint.name for joint in joints]

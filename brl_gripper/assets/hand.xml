@@ -100,11 +100,11 @@
                                 <site name="l_dip_tof4" group="0" size="0.001" pos="0.0243 0 -0.00735" rgba="1 0 0 1" euler="1.57079633 0 0"/>
                                 <site name="l_dip_tof5" group="0" size="0.001" pos="0.034 0.011 0" rgba="1 0 0 1" euler="-1.57079633 0 0"/>
 
-                                <!-- <body name="l_dip_tip" pos="0.0325 0 0">
+                                <body name="l_dip_tip" pos="0.0325 0 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
                                     <geom name="l_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="1 0.75 0.75 0.8" class="contact"/>
                                     <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
-                                </body> -->
+                                </body>
                             </body>
                         </body>
                     </body>
@@ -146,11 +146,11 @@
                                 <site name="r_dip_tof4" group="0" size="0.001" pos="0.0243 0 0.00735" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
                                 <site name="r_dip_tof5" group="0" size="0.001" pos="0.034 -0.011 0" rgba="0 1 0 1" euler="1.57079633 0 0"/>
 
-                                <!-- <body name="r_dip_tip" pos="0.0325 0 0">
+                                <body name="r_dip_tip" pos="0.0325 0 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
                                     <geom name="r_dip_tip" size="0.01" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
                                     <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
-                                </body> -->
+                                </body>
                             </body>
                         </body>
                     </body>
@@ -177,8 +177,8 @@
         <exclude body1="r_pip"      body2="r_mcp"/>
         <exclude body1="l_dip"      body2="l_pip"/>
         <exclude body1="r_dip"      body2="r_pip"/>
-        <!-- <exclude body1="l_dip_tip"  body2="l_dip"/>
-        <exclude body1="r_dip_tip"  body2="r_dip"/> -->
+        <exclude body1="l_dip_tip"  body2="l_dip"/>
+        <exclude body1="r_dip_tip"  body2="r_dip"/>
     </contact>
 
     <sensor>
@@ -212,8 +212,8 @@
         <touch name="r_pip_fsr2"    site="r_pip_fsr2"/>
 
         <!-- FORCE SENSORS -->
-        <!-- <force name="l_dip_force"   site="l_dip_force"/>
-        <force name="r_dip_force"   site="r_dip_force"/> -->
+        <force name="l_dip_force"   site="l_dip_force"/>
+        <force name="r_dip_force"   site="r_dip_force"/>
     </sensor>
 
     <!-- ACTUATORS -->
