@@ -2,10 +2,6 @@
 
   <include file="hand.xml"/>
 
-  <option cone="elliptic" tolerance="1e-10" impratio="5" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">
-    <flag contact="enable" override="disable" multiccd="disable"/>
-  </option>
-  
   <include file="visual.xml"/>
 
   <asset>
@@ -24,5 +20,9 @@
         directional="true" castshadow="true"/>
     <geom name="floor" group="0" size="0 0 0.05" type="plane" material="groundplane"/>
   </worldbody>
+
+  <option cone="elliptic" tolerance="1e-10" impratio="10" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">
+    <flag contact="enable" override="disable" multiccd="disable"/>
+  </option>
 
 </mujoco>

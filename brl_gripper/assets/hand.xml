@@ -12,7 +12,7 @@
         </default>
         <!-- TODO: add defaults for contact parameters for different sensor bodies? -->
         <default class="contact">
-            <geom conaffinity="1" contype="1" condim="6" priority="1" friction="1.0 0.02 0.005" solimp="0.95 0.99 0.001 0.5 2"  solref="0.005 1"/>
+            <geom conaffinity="1" contype="1" condim="6" priority="1" friction="1.0 0.02 0.0001" solimp="0.95 0.99 0.001 0.5 2"  solref="0.005 1"/>
         </default>
         <default class="no_contact">
             <geom conaffinity="0" contype="0" priority="0"/>
