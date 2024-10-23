@@ -97,16 +97,22 @@
                                 <inertial pos="0.022019 -0.0011798 9.2257e-05" quat="0.559785 0.00180072 -0.00151435 0.828635" mass="0.027278" diaginertia="1.18481e-06 1.169e-06 9.71445e-07"/>
                                 <joint name="5_l_dip" group="1" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
                                 <geom name="l_dip" quat="0 1 0 0" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip"/>
-                                <site name="l_dip_tof1" group="0" size="0.001" pos="0.04896 0.00353 -0.0075" rgba="0 1 0 1" euler="1.57079633 0.2 0"/>
-                                <site name="l_dip_tof2" group="0" size="0.001" pos="0.031463 -0.0015228 -0.0075 " rgba="0 1 0 1" euler="1.57079633 0 0"/>
-                                <site name="l_dip_tof3" group="0" size="0.001" pos="0.04896 0.00353 0.0075" rgba="0 1 0 1" euler="1.57079633 0.2 0"/>
-                                <site name="l_dip_tof4" group="0" size="0.001" pos="0.031463 -0.0015228 0.0075" rgba="0 1 0 1" euler="1.57079633 0 0"/>
-                                <site name="l_dip_tof5" group="0" size="0.001" pos="0.03059 0.006123 0" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="l_dip_tof1" group="0" size="0.001" pos="0.035 0.008 0.00782" rgba="1 0 0 1" euler="0 1.57079633 0"/>
+                                <site name="l_dip_tof2" group="0" size="0.001" pos="0.0243 0 0.00735" rgba="1 0 0 1" euler="1.57079633 0 0"/>
+                                <site name="l_dip_tof3" group="0" size="0.001" pos="0.035 0.008 -0.00782" rgba="1 0 0 1" euler="0 1.57079633 0"/>
+                                <site name="l_dip_tof4" group="0" size="0.001" pos="0.0243 0 -0.00735" rgba="1 0 0 1" euler="1.57079633 0 0"/>
+                                <site name="l_dip_tof5" group="0" size="0.001" pos="0.034 0.011 0" rgba="1 0 0 1" euler="-1.57079633 0 0"/>
+
+                                <!-- <body name="l_dip_tip" pos="0.03922 0.00234 0">
+                                    <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
+                                    <geom name="l_dip_tip" type="ellipsoid" size="0.0106 0.00635 0.009" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
+                                    <site name="l_dip_force" group="2" size="0.001" pos="0 0 0" rgba="1 0 0 1" euler="-1.57079633 3.14159265 0"/>
+                                </body> -->
 
                                 <body name="l_dip_tip" pos="0.03901 0.002547 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
                                     <geom name="l_dip_tip" type="mesh" class="contact" group = "2" density = "0" rgba="0.75 1 0.75 0.8" euler="0 0 3.27668113769" mesh = "dip_sensor"/>
-                                    <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="-1.57079633 3.0065041659 0"/>
+                                    <site name="l_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="-1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
                         </body>
@@ -140,19 +146,34 @@
                             <site name="r_pip_fsr2" group="1" type="box" size="0.00525 0.00925 0.0001" pos="0.02925 0.00975 0" rgba="0 0.9 0.4 0.1" euler="-1.57079633 0 0"/>
 
                             <body name="r_dip" pos="0.04 0 0">
+                                <!-- <inertial pos="0.022019 -0.0011798 9.2257e-05" quat="0.559785 0.00180072 -0.00151435 0.828635" mass="0.027278" diaginertia="1.18481e-06 1.169e-06 9.71445e-07"/>
+                                <joint name="9_r_dip" group="2" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
+                                <geom name="r_dip" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip"/>
+                                <site name="r_dip_tof1" group="0" size="0.001" pos="0.035 -0.008 -0.00782" rgba="0 1 0 1" euler="0 1.57079633 0"/>
+                                <site name="r_dip_tof2" group="0" size="0.001" pos="0.0243 0 -0.00735" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="r_dip_tof3" group="0" size="0.001" pos="0.035 -0.008 0.00782" rgba="0 1 0 1" euler="0 1.57079633 0"/>
+                                <site name="r_dip_tof4" group="0" size="0.001" pos="0.0243 0 0.00735" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="r_dip_tof5" group="0" size="0.001" pos="0.034 -0.011 0" rgba="0 1 0 1" euler="1.57079633 0 0"/> -->
+                                
                                 <inertial pos="0.022019 -0.0011798 9.2257e-05" quat="0.559785 0.00180072 -0.00151435 0.828635" mass="0.027278" diaginertia="1.18481e-06 1.169e-06 9.71445e-07"/>
                                 <joint name="9_r_dip" group="2" class="XM430" pos="0 0 0" axis="0 0 1" range="-1.57079633 1.57079633" />
                                 <geom name="r_dip" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="dip"/>
-                                <site name="r_dip_tof1" group="0" size="0.001" pos="0.04896 -0.00353 -0.0075" rgba="0 1 0 1" euler="-1.57079633 0.2 0"/>
-                                <site name="r_dip_tof2" group="0" size="0.001" pos="0.031463 0.0015228 -0.0075 " rgba="0 1 0 1" euler="-1.57079633 0 0"/>
-                                <site name="r_dip_tof3" group="0" size="0.001" pos="0.04896 -0.00353 0.0075" rgba="0 1 0 1" euler="-1.57079633 0.2 0"/>
-                                <site name="r_dip_tof4" group="0" size="0.001" pos="0.031463 0.0015228 0.0075" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
-                                <site name="r_dip_tof5" group="0" size="0.001" pos="0.03059 -0.006123 0" rgba="0 1 0 1" euler="1.57079633 0 0"/>
+                                <site name="r_dip_tof1" group="0" size="0.001" pos="0.04896 -0.00353 -0.0064565" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="r_dip_tof2" group="0" size="0.001" pos="0.0 0 -0.0" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="r_dip_tof3" group="0" size="0.001" pos="0.04896 -0.00353 -0.0064565" rgba="0 1 0 1" euler="0 1.57079633 0"/>
+                                <site name="r_dip_tof4" group="0" size="0.001" pos="0.0 0 0.0" rgba="0 1 0 1" euler="-1.57079633 0 0"/>
+                                <site name="r_dip_tof5" group="0" size="0.001" pos="0.0 -0.0 0" rgba="0 1 0 1" euler="1.57079633 0 0"/>
+
+                                <!-- <body name="r_dip_tip" pos="0.03922 -0.00234 0">
+                                    <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
+                                    <geom name="r_dip_tip" type="ellipsoid" size="0.0106 0.00635 0.009" group="2" pos="0 0 0" rgba="0.75 1 0.75 0.8" class="contact"/>
+                                    <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
+                                </body> -->
 
                                 <body name="r_dip_tip" pos="0.03901 -0.002547 0">
                                     <inertial pos="0 0 0" mass="0.001" diaginertia="4e-8 4e-8 4e-8"/>
                                     <geom name="r_dip_tip" type="mesh" class="contact" group = "2" density = "0" rgba="0.75 1 0.75 0.8" euler= "0 0 -0.135088484104" mesh = "dip_sensor"/>
-                                    <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.0065041659 0"/>
+                                    <site name="r_dip_force" group="2" size="0.002" pos="0 0 0" rgba="0 1 0 1" euler="1.57079633 3.14159265 0"/>
                                 </body>
                             </body>
                         </body>

@@ -80,3 +80,5 @@ class ImpedanceControlDemo:
         # set wrist cartesian position
         gr_data.kinematics['base_des']['p'] = np.array([0.0, 0.0, 0.05])
         gr_data.kinematics['base_des']['R'] = np.eye(3)
+
+        # print("palm sensors",gr_data.sensors['palm'].dist)

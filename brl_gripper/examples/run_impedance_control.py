@@ -16,6 +16,8 @@ xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
 
 hw_mode = bg.HardwareEnable.FINGERS_ONLY
+# hw_mode = bg.HardwareEnable.NO_HW
+
 sens_mode = bg.SensorDataMode.RAW_PRESSURE_VALS
 # sens_mode = bg.SensorDataMode.NO_PRESSURE_VALS
 if hw_mode == bg.HardwareEnable.NO_HW:
