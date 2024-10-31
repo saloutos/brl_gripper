@@ -17,8 +17,10 @@ class ImpedanceControlDemo:
         # NOTE: joint order for model: mcr, mcp pip, dip
 
         # set finger defaults for control
-        gr_data.set_q_des_default(gr_data.l_idxs,   np.array([0.0, 0.4, -0.8, -0.8]))
-        gr_data.set_q_des_default(gr_data.r_idxs,   np.array([0.0, -0.4, 0.8, 0.8]))
+        # gr_data.set_q_des_default(gr_data.l_idxs,   np.array([0.0, 0.4, -0.8, -0.8]))
+        # gr_data.set_q_des_default(gr_data.r_idxs,   np.array([0.0, -0.4, 0.8, 0.8]))
+        gr_data.set_q_des_default(gr_data.l_idxs,   np.zeros((4,)))
+        gr_data.set_q_des_default(gr_data.r_idxs,   np.zeros((4,)))
 
         gr_data.set_kp_default(gr_data.l_idxs,      np.array([8.0, 2.5, 2.5, 2.5]))
         gr_data.set_kp_default(gr_data.r_idxs,      np.array([8.0, 2.5, 2.5, 2.5]))

@@ -1,17 +1,20 @@
 import math
 import torch
 import torch.nn as nn
+from ..sensor_config import *
 
 
 class BinnedRNNSensorNet(nn.Module):
-
-    #spherical range
-    # theta_range = [-torch.pi / 4, torch.pi / 4]
-    # phi_range = [-3 * torch.pi / 4, torch.pi / 4]
-
-    #ellipsoid range
-    theta_range = [-torch.pi / 4.5, torch.pi / 4.5]
-    phi_range = [-2 * torch.pi / 5, 2*torch.pi / 5]
+    if sensor_params.sensor_type == "sphere":
+        #spherical range
+        theta_range = [-torch.pi / 4, torch.pi / 4]
+        phi_range = [-3 * torch.pi / 4, torch.pi / 4]
+    elif sensor_params.sensor_type == "ellipsoid":
+        #ellipsoid range
+        theta_range = [-torch.pi / 4.5, torch.pi / 4.5]
+        phi_range = [-2 * torch.pi / 5, 2*torch.pi / 5]
+    else:
+        print("sensor type is not known")
 
     def __init__(self, hidden_size=64, num_layers=1, linear_layers = [64,], dropout_p=0.2, bin_width=torch.pi/16, full_out=False):
         # bin_width is 0.15 rad or 8.59437 deg

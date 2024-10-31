@@ -395,47 +395,6 @@ class EllipsoidFingertipSensorData(SensorData):
     def convert_tof_data(self):
         self.tof_raw = np.where(self.tof_raw==0, 254, self.tof_raw)
         self.dist = (self.tof_raw/1000.0) - self.dist_offset  # convert mm to m, apply offset
-    # visualization of hardware data
-    # def sync_data_to_viewer(self, scene, start_idx):
-    #     # TODO: check self.kinematics, where is it set and is rotation matrix correct?
-
-    #     idx = start_idx
-    #     # visualize data for 5 ToF sensors
-    #     for t in range(5):
-    #         # line starts at pos, aligns with z-axis of sensor frame
-    #         scene.geoms[idx].type = 103 # line
-    #         scene.geoms[idx].size = np.array([4, 4, self.dist[t]]) # width in px, width in px, length in m
-    #         scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(self.tof_pos_offsets[t,:])
-    #         # align z-axis geom frame with tof sensor direction!
-    #         z = self.tof_signs[t]*self.kinematics[1][:,self.tof_axes[t]].reshape((3,1)) # should be unit vec already
-    #         y = np.cross(z.squeeze(), np.array([0, 1, 0]).squeeze()).reshape((3,1))
-    #         x = np.cross(y.squeeze(), z.squeeze()).reshape((3,1))
-    #         scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
-    #         scene.geoms[idx].rgba = np.array([1, 0.2, 0, 0.5])
-    #         idx += 1
-    #     # visualize force at contact location
-    #     # arrow starts at pos, aligns with z-axis of sensor frame
-    #     scene.geoms[idx].type = 100 # arrow
-    #     scene.geoms[idx].size = np.array([0.002, 0.002, self.force_scale*np.linalg.norm(self.contact_force)]) # radius, radius, length in m
-    #     # build contact frame from two angles
-    #     theta = np.deg2rad(self.contact_angle[0])
-    #     phi = np.deg2rad(self.contact_angle[1])
-    #     R_theta = np.array([[1, 0, 0], [0, np.cos(theta), -np.sin(theta)], [0, np.sin(theta), np.cos(theta)]]) # Rx by theta
-    #     R_phi = np.array([[np.cos(phi), 0, np.sin(phi)], [0, 1, 0], [-np.sin(phi), 0, np.cos(phi)]]) # Ry by phi
-    #     R_cont = R_phi @ R_theta
-    #     p_cont = R_cont.dot(self.nominal_contact)
-    #     scene.geoms[idx].pos = self.kinematics[0] + self.kinematics[1].dot(p_cont)
-    #     # align z-axis geom frame with contact force direction!
-    #     if np.linalg.norm(self.contact_force)>0.01:
-    #         z = self.kinematics[1] @ R_cont @ (self.contact_force.reshape((3,1))/np.linalg.norm(self.contact_force))
-    #         y = np.cross(z.squeeze(), np.array([0, 0, 1]).squeeze()).reshape((3,1))
-    #         x = np.cross(y.squeeze(), z.squeeze()).reshape((3,1))
-    #         scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
-    #     else:
-    #         scene.geoms[idx].mat = self.kinematics[1] @ R_cont # full 3x3 matrix, not 9-vector
-    #     scene.geoms[idx].rgba=np.array([1, 0, 1, 0.5])
-    #     idx += 1
-    #     return idx
     def sync_data_to_viewer(self, scene, start_idx):
         # TODO: check self.kinematics, where is it set and is rotation matrix correct?
         idx = start_idx
@@ -607,15 +566,9 @@ class PipPhalangeSensorData(PhalangeSensorData):
 class GripperData:
     # TODO: initialize with lists of joints and sensors? rather than hardcoding?
     # TODO: if init takes joints and sensors, should it take indices too? those could be added in platform?
-    def __init__(self): #, joints=[], sensors=[]):
+    def __init__(self,joints=[],sensors=[]): #, joints=[], sensors=[]):
         # list of joints
-        joints = [JointData("1_w_roll"),                                                                    # wrist
-                    JointData("2_l_mcr"),JointData("3_l_mcp"),JointData("4_l_pip"),JointData("5_l_dip"),    # left finger
-                    JointData("6_r_mcr"),JointData("7_r_mcp"),JointData("8_r_pip"),JointData("9_r_dip")]    # right finger
-            # list of sensors
-        sensors = [PalmSensorData("palm"),                                                                 # palm
-                McpPhalangeSensorData("l_mcp"),PipPhalangeSensorData("l_pip"),EllipsoidFingertipSensorData("l_dip"),   # left finger
-                McpPhalangeSensorData("r_mcp"),PipPhalangeSensorData("r_pip"),EllipsoidFingertipSensorData("r_dip")]   # right finger
+        
         # NOTE: these should match the names of the joints and sensors in the mujoco model
         # now, store in dicts so that we have named access
         self.joint_names = [joint.name for joint in joints]

@@ -11,17 +11,22 @@ import os
 print("Starting init.")
 init_settings = termios.tcgetattr(sys.stdin)
 
-# platform
+# platform1
 xml_path = os.path.join(bg.assets.ASSETS_DIR, 'scene')
 log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
 
-hw_mode = bg.HardwareEnable.NO_HW
+hw_mode = bg.HardwareEnable.FINGERS_ONLY
+sens_mode = bg.SensorDataMode.RAW_PRESSURE_VALS
+
+# hw_mode = bg.HardwareEnable.NO_HW
+# sens_mode = bg.SensorDataMode.NO_PRESSURE_VALS
+
 if hw_mode == bg.HardwareEnable.NO_HW:
     mj_model = mj.MjModel.from_xml_path(xml_path+"_with_object.xml")
 else:
     mj_model = mj.MjModel.from_xml_path(xml_path+".xml")
 
-GP = bg.GripperPlatform(mj_model, viewer_enable=True, hardware_enable=hw_mode, log_path=None)
+GP = bg.GripperPlatform(mj_model, viewer_enable=True, hardware_enable=hw_mode, sensor_mode=sens_mode, log_path=None)
 
 # controller
 from controllers.finger_demos.potential_fields import PotentialFieldsDemo
