@@ -224,6 +224,7 @@ class EllipsoidFingertipSensorData(SensorData):
         self.contact_angle_raw = np.array([0.0, 0.0])
         self.contact_force = np.array([0.0, 0.0, 0.0]) # fx, fy, fz in N  # fz is normal to surface
         self.contact_angle = np.array([0.0, 0.0])  # theta, phi in deg
+        self.contact_flag = np.array([0,0])
         # TODO: set a clearer ToF order here
         self.tof_raw = np.array([0, 0, 0, 0, 0])  # 1,2,3,4,5 in mm
         self.dist_offset = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
@@ -243,8 +244,9 @@ class EllipsoidFingertipSensorData(SensorData):
         self.contact_force_filter_alpha = 1.0
         self.contact_angle_filter_alpha = 1.0
         self.normal_force_threshold = 1.0
+        self.contact_flag_threshold = 0.5
         # variables for visualization
-        # NOTE: center of rubber sphere is origin of sensor frame
+        # NOTE: center of ellipsoid is origin of sensor frame
         self.nominal_contact = np.array([0.0, 0.0, 0.01]) # ellipsoid default radius = 10mm
         self.force_scale = 0.02
         # self.tof_pos_offsets = np.array([[0.04896, -0.0075, -0.00353], # tof1
@@ -271,11 +273,12 @@ class EllipsoidFingertipSensorData(SensorData):
 
     # logging functions
     def log_data(self):
-        return self.contact_force.tolist()+self.contact_angle.tolist()+self.dist.tolist()
+        return self.contact_force.tolist()+self.contact_angle.tolist()+self.dist.tolist()+self.contact_flag.tolist()
     def log_header(self):
         return [self.name+"_fx",self.name+"_fy",self.name+"_fz",
                 self.name+"_theta",self.name+"_phi",
-                self.name+"_dist1",self.name+"_dist2",self.name+"_dist3",self.name+"_dist4",self.name+"_dist5"]
+                self.name+"_dist1",self.name+"_dist2",self.name+"_dist3",self.name+"_dist4",self.name+"_dist5",
+                self.name+"contact1",self.name+"contact2"]
     # initialization functions
     def set_force_offset(self, offset=None):
         if offset is not None:
@@ -293,13 +296,16 @@ class EllipsoidFingertipSensorData(SensorData):
         # gotta put key logic in here, hard coded for now
         if len(new_data) == 1:
             self.tof_raw = new_data[0]
-        elif len(new_data) == 2:
-            self.contact_force_raw = new_data[0]
-            self.contact_angle_raw = new_data[1]
         elif len(new_data) == 3:
             self.contact_force_raw = new_data[0]
             self.contact_angle_raw = new_data[1]
+            self.contact_flag = new_data[2]
+        elif len(new_data) == 4:
+            self.contact_force_raw = new_data[0]
+            self.contact_angle_raw = new_data[1]
             self.tof_raw = new_data[2]
+            self.contact_flag = new_data[3]
+
     def update_raw_data_from_sim(self, new_data):
         # new data should come in as dict with mujoco sensor names and data as arrays
         sim_force_data = new_data['force']
@@ -325,10 +331,15 @@ class EllipsoidFingertipSensorData(SensorData):
         # process tof data to re-create raw hardware data
         sim_tof_data = np.where(sim_tof_data==-1.0, 0.255, sim_tof_data)
         self.tof_raw = np.round(1000.0*sim_tof_data)
+
+        # process contact flag data
+        self.contact_flag[0] = self.contact_force_raw[2] >= 1 #N
+        self.contact_flag[1] = self.contact_force_raw[2] >= 0.01 #N
+
     def process_data(self):
         self.filter_contact_force()
-        # TODO: only filter angle if contact force is above threshold
         self.filter_contact_angle()
+        self.filter_by_contact_flag()
         self.convert_tof_data()
         # update other contact variables # TODO: verify this is correct
         # calculate orientation of vector
@@ -347,10 +358,16 @@ class EllipsoidFingertipSensorData(SensorData):
         R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
         R_phi_normal = np.array([[np.cos(phi_rad_normal), 0, np.sin(phi_rad_normal)], [0, 1, 0], [-np.sin(phi_rad_normal), 0, np.cos(phi_rad_normal)]]) # Ry by phi
         R_cont_normal = R_phi_normal @ R_theta_normal
-        self.contact_force_sensor = R_cont_normal @ self.contact_force #I don't thnk this means anything because it converts the contact force to the contact frame but the predictions are in the contact frame
+        self.contact_force_sensor = R_cont_normal @ self.contact_force #I don't think this means anything because it converts the contact force to the contact frame but the predictions are in the contact frame
         self.T_sensor_contact[0:3,0:3] = R_cont_normal #orientation of contact frame is normal to ellipsoid surface
         self.T_sensor_contact[0:3,3:4] = contact_vec.reshape((3,1)) #location of contact frame
 
+    def filter_by_contact_flag(self):
+        if self.contact_flag[0] < self.contact_flag_threshold:
+            self.contact_force = np.array([0.0, 0.0, 0.0])
+            self.contact_angle = np.array([0.0, 0.0])
+
+        
     def filter_contact_force(self, alpha=None):
         if alpha is not None:
             self.contact_force = (1.0-alpha)*self.contact_force + alpha*(self.contact_force_raw-self.contact_force_offset)
@@ -399,6 +416,7 @@ class EllipsoidFingertipSensorData(SensorData):
         # TODO: check self.kinematics, where is it set and is rotation matrix correct?
         idx = start_idx
         contact_force= self.contact_force
+        
         #fix contact force sign conventions based on coordinate frame of site. 
         # if self.name == "l_dip":
         #     contact_force = np.array([-self.contact_force[0], -self.contact_force[1], self.contact_force[2]])

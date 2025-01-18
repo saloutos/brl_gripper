@@ -203,16 +203,20 @@
         <rangefinder name="r_dip_tof5"  site="r_dip_tof5"   cutoff="0.255"   noise="0.003"/>
 
         <!-- CONTACT SENSORS -->
-        <touch name="palm_fsr1"     site="palm_fsr1"/>
-        <touch name="palm_fsr2"     site="palm_fsr2"/>
-        <touch name="l_mcp_fsr1"    site="l_mcp_fsr1"/>
-        <touch name="l_mcp_fsr2"    site="l_mcp_fsr2"/>
-        <touch name="l_pip_fsr1"    site="l_pip_fsr1"/>
-        <touch name="l_pip_fsr2"    site="l_pip_fsr2"/>
-        <touch name="r_mcp_fsr1"    site="r_mcp_fsr1"/>
-        <touch name="r_mcp_fsr2"    site="r_mcp_fsr2"/>
-        <touch name="r_pip_fsr1"    site="r_pip_fsr1"/>
-        <touch name="r_pip_fsr2"    site="r_pip_fsr2"/>
+        <touch name="palm_fsr1"             site="palm_fsr1"/>
+        <touch name="palm_fsr2"             site="palm_fsr2"/>
+        <touch name="l_mcp_fsr1"            site="l_mcp_fsr1"/>
+        <touch name="l_mcp_fsr2"            site="l_mcp_fsr2"/>
+        <touch name="l_pip_fsr1"            site="l_pip_fsr1"/>
+        <touch name="l_pip_fsr2"            site="l_pip_fsr2"/>
+        <touch name="l_dip_contact"         site="l_dip_force"/>
+        <touch name="l_dip_sensorcontact"   site="l_dip_force"/>
+        <touch name="r_mcp_fsr1"            site="r_mcp_fsr1"/>
+        <touch name="r_mcp_fsr2"            site="r_mcp_fsr2"/>
+        <touch name="r_pip_fsr1"            site="r_pip_fsr1"/>
+        <touch name="r_pip_fsr2"            site="r_pip_fsr2"/>
+        <touch name="r_dip_contact"         site="r_dip_force"/>
+        <touch name="r_dip_sensorcontact"   site="r_dip_force"/>
 
         <!-- FORCE SENSORS -->
         <force name="l_dip_force"   site="l_dip_force"/>
