@@ -19,6 +19,13 @@
     <light pos="0 -0.1 0.5" dir="0 0.2 -1" diffuse="0.7 0.7 0.7" specular="0.3 0.3 0.3"
         directional="true" castshadow="true"/>
     <geom name="floor" group="0" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- FIXED CAMERA -->
+    <body name="upper_camera" pos="-0.1 0 0.5" euler="0 2.356 1.5707963308">
+        <camera name="upper_camera" mode="fixed" pos ="0 0 0" euler="0 3.1415926516 0"/>
+        <geom name="upper_camera" type="box" group="0" size="0.05 0.01 0.01" rgba="0.2 0.2 0.2 1" class="no_contact"/>
+    </body>
+
   </worldbody>
 
   <option cone="elliptic" tolerance="1e-10" impratio="10" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">

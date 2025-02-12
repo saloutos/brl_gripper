@@ -10,9 +10,12 @@ from datetime import datetime as dt
 import select
 import os
 from enum import Enum
+import copy
 
 import mujoco as mj
 import mujoco.viewer as mjv
+
+import open3d as o3d
 
 from .utils.can_utils import *
 from .GripperData import *
@@ -38,7 +41,7 @@ class HardwareEnable(Enum):
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, setup_rendering=False, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
@@ -93,6 +96,17 @@ class GripperPlatform:
         self.run_control = False
         self.char_in = None
         self.new_char = False
+
+        # setup for rendering
+        # NOTE: rendering is for grasp planning, needs to be set up here before simulation is started
+        self.setup_rendering = setup_rendering
+        if setup_rendering:
+            # Setup MuJoCo rendering context
+            self.cam_width = 640
+            self.cam_height = 480
+            self.gl_context = mj.GLContext(self.cam_width, self.cam_height)
+            self.gl_context.make_current()
+            self.renderer = mj.MjrContext(self.mj_model, mj.mjtFontScale.mjFONTSCALE_150)
 
         # general init for logging
         self.log_enable = (log_path is not None)
@@ -679,3 +693,97 @@ class GripperPlatform:
                     "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]}
 
         return all_data
+
+    def capture_scene(self, cam_name, add_noise=False):
+
+        # need to make current every time
+        self.gl_context.make_current()
+        self.mj_viewer.sync()
+
+        # Get the camera ID for cam_name
+        cam_id = mj.mj_name2id(self.mj_model, mj.mjtObj.mjOBJ_CAMERA, cam_name)
+
+        # set up camera intrinsics
+        cam_fovy = np.deg2rad(self.mj_model.cam_fovy[cam_id])
+        cam_cx = self.cam_width/2
+        cam_cy = self.cam_height/2
+        cam_f = self.cam_height / (2 * math.tan(cam_fovy / 2))
+        cam_K = np.array([[cam_f, 0.0, cam_cx], [0.0, cam_f, cam_cy], [0.0, 0.0, 1.0]])
+        # TODO: could return this tuple!
+        cam_intrinsics = (self.cam_width, self.cam_height, cam_cx, cam_cy, cam_f)
+
+        # Get z-buffer properties
+        # https://github.com/google-deepmind/dm_control/blob/main/dm_control/mujoco/engine.py#L817
+        z_extent = self.mj_model.stat.extent
+        z_near = self.mj_model.vis.map.znear * z_extent # 0.005
+        z_far = self.mj_model.vis.map.zfar * z_extent # 30
+
+        # Define the camera parameters (you can modify these based on your need)
+        # https://mujoco.readthedocs.io/en/stable/XMLreference.html#body-camera
+        cam = mj.MjvCamera()
+        cam.fixedcamid = cam_id  # Use the camera ID obtained earlier
+        cam.type = mj.mjtCamera.mjCAMERA_FIXED  # Fixed camera
+
+        # Prepare to render
+        scene = mj.MjvScene(self.mj_model, maxgeom=20000)
+        viewport = mj.MjrRect(0, 0, self.cam_width, self.cam_height)
+
+        # update camera stuff
+        mj.mjv_updateScene(self.mj_model, self.mj_data, mj.MjvOption(), None, cam, mj.mjtCatBit.mjCAT_ALL, scene)
+
+        # Render the scene to an offscreen buffer
+        mj.mjr_render(viewport, scene, self.renderer)
+
+        # Read pixels from the OpenGL buffer (MuJoCo renders in RGB format)
+        rgb_array = np.zeros((self.cam_height, self.cam_width, 3), dtype=np.uint8)  # Image size: height=480, width=640
+        depth_array = np.zeros((self.cam_height, self.cam_width), dtype=np.float32)  # Depth array
+        mj.mjr_readPixels(rgb_array, depth_array, viewport, self.renderer)
+
+        # Flip the image vertically (because OpenGL origin is bottom-left)
+        rgb_array = np.flipud(rgb_array)
+        depth_array = np.flipud(depth_array)
+
+        # convert from raw depth to metric depth
+        depth_array = z_near / (1 - depth_array * (1 - z_near / z_far))
+
+        ### ADD NOISE TO DEPTH IMAGE ###
+        # TODO: make this more realistic?
+        if add_noise:
+            depth_noise = np.random.normal(loc=0.0, scale=0.001, size=depth_array.shape)
+            depth_array += depth_noise
+
+        # --- Process image --- #
+        cam_xpos = self.mj_data.cam_xpos[cam_id]
+        cam_xmat = self.mj_data.cam_xmat[cam_id]
+        cam_extrinsics = np.eye(4)
+        cam_extrinsics[:3, :3] = cam_xmat.reshape(3, 3)
+        cam_extrinsics[:3, 3] = cam_xpos
+        # -z --> +z
+        # -y --> +y
+        # +x --> +x
+        T_camzforward_cam = np.array([[1, 0, 0, 0],
+                                    [0, -1, 0, 0],
+                                    [0, 0, -1, 0],
+                                    [0, 0, 0, 1]])
+        cam_extrinsics = cam_extrinsics @ T_camzforward_cam
+
+        # get point cloud
+        mask = np.where((depth_array > 0.0) & (depth_array < 2.0))
+        x,y = mask[1], mask[0]
+        pc_rgb = rgb_array[y,x,:]
+        normalized_x = (x.astype(np.float32) - cam_K[0,2])
+        normalized_y = (y.astype(np.float32) - cam_K[1,2])
+        world_x = normalized_x * depth_array[y, x] / cam_K[0,0]
+        world_y = normalized_y * depth_array[y, x] / cam_K[1,1]
+        world_z = depth_array[y, x]
+        pc_xyz = np.vstack((world_x, world_y, world_z)).T
+
+        pcd_cam = o3d.geometry.PointCloud()
+        pcd_cam.points = o3d.utility.Vector3dVector(pc_xyz)
+        if rgb_array is not None:
+            pcd_cam.colors = o3d.utility.Vector3dVector(pc_rgb / 255.0)
+
+        # convert PC to world frame
+        pcd_world = copy.deepcopy(pcd_cam).transform(cam_extrinsics)
+
+        return pcd_cam, pcd_world, cam_extrinsics, cam_intrinsics, rgb_array, depth_array
