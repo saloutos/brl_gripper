@@ -75,9 +75,13 @@ class GripperPlatform:
         self.mj_model = mj_model
         self.mj_data = mj.MjData(self.mj_model)
 
+        print("Model loaded.")
+
         # gripper data init
         # TODO: if GripperData() takes list of joints and sensors as arguments, then pass them here
         self.gr_data = GripperData()
+
+        print("Gripper data initialized.")
 
         # general init for platform
         self.paused = False
@@ -101,12 +105,17 @@ class GripperPlatform:
         # NOTE: rendering is for grasp planning, needs to be set up here before simulation is started
         self.setup_rendering = setup_rendering
         if setup_rendering:
+            print("Setting up rendering.")
             # Setup MuJoCo rendering context
             self.cam_width = 640
             self.cam_height = 480
+            print("Creating GL context.")
             self.gl_context = mj.GLContext(self.cam_width, self.cam_height)
+            print("Created GL context.")
             self.gl_context.make_current()
+            print("GL context made current.")
             self.renderer = mj.MjrContext(self.mj_model, mj.mjtFontScale.mjFONTSCALE_150)
+            print("Rendering context initialized.")
 
         # general init for logging
         self.log_enable = (log_path is not None)
@@ -119,6 +128,7 @@ class GripperPlatform:
             self.log_writer = csv.writer(self.log_file, delimiter=',')
             self.log_writer.writerows([self.log_header])
             self.log_start = 0.0 # will udpate this in initialize later
+            print("Logging enabled.")
 
         # specific init for hardware
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.HW_NO_VIS:
@@ -155,6 +165,7 @@ class GripperPlatform:
                 time.sleep(1.0)
             except Exception as e:
                 print(f"CAN init failed: {e}")
+            print("Hardware initialized.")
 
     def initialize(self):
 
@@ -224,6 +235,13 @@ class GripperPlatform:
                 self.CAN_bus_2.send(can.Message(arbitration_id=WRIST_ID, data=U6_ExitMotorMode, is_extended_id=False))
             print("CAN bus disabled.")
         # TODO: close CAN busses properly?
+
+        # close rendering context
+        if self.setup_rendering:
+            self.gl_context.free()
+            self.renderer.free()
+            print("Rendering context freed.")
+
         # close viewer
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS:
             self.mj_viewer.close()
@@ -274,10 +292,10 @@ class GripperPlatform:
     def sync_viewer(self):
         # TODO: is this check even necessary? might end up redundant
         if (self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS) and self.mj_viewer.is_running():
-            self.mj_viewer.user_scn.ngeom = 0
             # TODO: update any other visual elements here
             # sync sensor visualizations
             if self.mode==PlatformMode.HW_WITH_VIS:
+                self.mj_viewer.user_scn.ngeom = 0
                 self.gr_data.sync_all_sensor_data_to_viewer(self.mj_viewer.user_scn)
 
             # sync mujoco viewer
@@ -369,12 +387,22 @@ class GripperPlatform:
         # TODO: do we want any other body kinematics?
         wrist_p = self.mj_data.body('palm').xpos
         wrist_R = self.mj_data.body('palm').xmat.reshape((3,3))
+        self.gr_data.kinematics['base']['p'] = wrist_p
+        self.gr_data.kinematics['base']['R'] = wrist_R
+
+        l_dip_p = self.mj_data.body('l_dip').xpos
+        l_dip_R = self.mj_data.body('l_dip').xmat.reshape((3,3))
+        r_dip_p = self.mj_data.body('r_dip').xpos
+        r_dip_R = self.mj_data.body('r_dip').xmat.reshape((3,3))
+        self.gr_data.kinematics['l_dip']['p'] = l_dip_p
+        self.gr_data.kinematics['l_dip']['R'] = l_dip_R
+        self.gr_data.kinematics['r_dip']['p'] = r_dip_p
+        self.gr_data.kinematics['r_dip']['R'] = r_dip_R
+
         l_dip_tip_p = self.mj_data.body('l_dip_tip').xpos
         l_dip_tip_R = self.mj_data.body('l_dip_tip').xmat.reshape((3,3))
         r_dip_tip_p = self.mj_data.body('r_dip_tip').xpos
         r_dip_tip_R = self.mj_data.body('r_dip_tip').xmat.reshape((3,3))
-        self.gr_data.kinematics['base']['p'] = wrist_p
-        self.gr_data.kinematics['base']['R'] = wrist_R
         self.gr_data.kinematics['l_dip_tip']['p'] = l_dip_tip_p
         self.gr_data.kinematics['l_dip_tip']['R'] = l_dip_tip_R
         self.gr_data.kinematics['r_dip_tip']['p'] = r_dip_tip_p
@@ -729,7 +757,11 @@ class GripperPlatform:
         viewport = mj.MjrRect(0, 0, self.cam_width, self.cam_height)
 
         # update camera stuff
-        mj.mjv_updateScene(self.mj_model, self.mj_data, mj.MjvOption(), None, cam, mj.mjtCatBit.mjCAT_ALL, scene)
+        mjv_opt = mj.MjvOption()
+        # set some rendering options
+        mjv_opt.flags[mj.mjtVisFlag.mjVIS_RANGEFINDER] = False
+
+        mj.mjv_updateScene(self.mj_model, self.mj_data, mjv_opt, None, cam, mj.mjtCatBit.mjCAT_ALL, scene)
 
         # Render the scene to an offscreen buffer
         mj.mjr_render(viewport, scene, self.renderer)

@@ -340,7 +340,9 @@ class GripperData:
         # TODO: how likely is it we will want to track sensor kinematics for things beyond visualization?
         self.kinematics = {}
         self.kinematics['base'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
-        self.kinematics['l_dip_tip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame (for mocap body)
+        self.kinematics['l_dip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame
+        self.kinematics['r_dip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))}
+        self.kinematics['l_dip_tip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame
         self.kinematics['r_dip_tip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))}
         self.kinematics['l_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
         self.kinematics['r_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame

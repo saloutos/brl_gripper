@@ -39,7 +39,7 @@
             <site name="mocap" group="4" pos="0 0 0" euler="0 0 0" size="0.01" rgba="0.1 0.1 0.1 0.2"/>
         </body>
 
-        <body name="floating_2" pos="0 0 0.1" euler="-1.570795 0 -1.570795">
+        <body name="floating_2" pos="0 0 0.1" euler="1.570795 0 1.570795">
             <geom name="floating_2" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1" class="no_contact"/>
             <site name="floating_2" group="4" pos="0.1 0 0" euler="0 0 0" size="0.01" rgba="0.1 0.1 0.1 0.2"/>
             <freejoint name="floating_2"/>
