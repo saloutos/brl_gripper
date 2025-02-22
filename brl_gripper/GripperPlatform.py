@@ -726,7 +726,6 @@ class GripperPlatform:
 
         # need to make current every time
         self.gl_context.make_current()
-        self.mj_viewer.sync()
 
         # Get the camera ID for cam_name
         cam_id = mj.mj_name2id(self.mj_model, mj.mjtObj.mjOBJ_CAMERA, cam_name)
