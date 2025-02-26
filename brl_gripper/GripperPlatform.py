@@ -722,7 +722,7 @@ class GripperPlatform:
 
         return all_data
 
-    def capture_scene(self, cam_name, add_noise=False):
+    def capture_scene(self, cam_name, noise_scale=None):
 
         # need to make current every time
         self.gl_context.make_current()
@@ -778,9 +778,9 @@ class GripperPlatform:
         depth_array = z_near / (1 - depth_array * (1 - z_near / z_far))
 
         ### ADD NOISE TO DEPTH IMAGE ###
-        # TODO: make this more realistic?
-        if add_noise:
-            depth_noise = np.random.normal(loc=0.0, scale=0.001, size=depth_array.shape)
+        # TODO: is this the best way to do this?
+        if noise_scale is not None:
+            depth_noise = np.random.normal(loc=0.0, scale=noise_scale, size=depth_array.shape)
             depth_array += depth_noise
 
         # --- Process image --- #
