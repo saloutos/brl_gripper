@@ -1,0 +1,5 @@
+controller:
+  name: vfcdemo
+  params:
+    control_dt: 0.002
+    hand_control_mode: current

@@ -1,0 +1,7 @@
+controller:
+  name: tsvfcdemo
+  params:
+    control_dt: 0.002
+    hand_control_mode: current
+xml_scene: scene_v2
+gp_type: v2

@@ -312,13 +312,27 @@ class GripperData:
     # TODO: if init takes joints and sensors, should it take indices too? those could be added in platform?
     def __init__(self): #, joints=[], sensors=[]):
         # list of joints
-        joints = [JointData("1_w_roll"),                                                                    # wrist
-                    JointData("2_l_mcr"),JointData("3_l_mcp"),JointData("4_l_pip"),JointData("5_l_dip"),    # left finger
-                    JointData("6_r_mcr"),JointData("7_r_mcp"),JointData("8_r_pip"),JointData("9_r_dip")]    # right finger
-            # list of sensors
-        sensors = [PalmSensorData("palm"),                                                                 # palm
-                McpPhalangeSensorData("l_mcp"),PipPhalangeSensorData("l_pip"),FingertipSensorData("l_dip"),   # left finger
-                McpPhalangeSensorData("r_mcp"),PipPhalangeSensorData("r_pip"),FingertipSensorData("r_dip")]   # right finger
+        joints = [
+            JointData("1_w_roll"),                                                                    # wrist
+            JointData("2_l_mcr"),
+            JointData("3_l_mcp"),
+            JointData("4_l_pip"),
+            JointData("5_l_dip"), # left finger
+            JointData("6_r_mcr"),
+            JointData("7_r_mcp"),
+            JointData("8_r_pip"),
+            JointData("9_r_dip") # right finger
+        ]
+        # list of sensors
+        sensors = [
+            PalmSensorData("palm"),                                                                 # palm
+            McpPhalangeSensorData("l_mcp"),
+            PipPhalangeSensorData("l_pip"),
+            FingertipSensorData("l_dip"), # left finger
+            McpPhalangeSensorData("r_mcp"),
+            PipPhalangeSensorData("r_pip"),
+            FingertipSensorData("r_dip") # right finger
+        ]   
         # NOTE: these should match the names of the joints and sensors in the mujoco model
         # now, store in dicts so that we have named access
         self.joint_names = [joint.name for joint in joints]
@@ -340,6 +354,7 @@ class GripperData:
         # TODO: how likely is it we will want to track sensor kinematics for things beyond visualization?
         self.kinematics = {}
         self.kinematics['base'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+        self.kinematics['base_vel'] = {'v': np.zeros((3,)), 'w': np.zeros((3,))} # linear and angular vel in world frame
         self.kinematics['l_dip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame
         self.kinematics['r_dip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))}
         self.kinematics['l_dip_tip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))} # pos, R, Jt in world frame
@@ -349,6 +364,7 @@ class GripperData:
 
         # TODO: this doesn't feel like the right way to do this
         self.kinematics['base_des'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # desired base pos, R in world frame (for mocap body)
+        self.kinematics['base_vel_des'] = {'v': np.zeros((3,)), 'w': np.zeros((3,))} # desired base linear and angular vel in world frame
 
         # TODO: other useful vars? don't need to populate them here, but could store them here
         # contact points?

@@ -385,10 +385,13 @@ class GripperPlatform:
         # always update some kinematic data
         # TODO: best way to store this data?
         # TODO: do we want any other body kinematics?
-        wrist_p = self.mj_data.body('palm').xpos
-        wrist_R = self.mj_data.body('palm').xmat.reshape((3,3))
-        self.gr_data.kinematics['base']['p'] = wrist_p
-        self.gr_data.kinematics['base']['R'] = wrist_R
+
+        # This does not seem correct
+        # wrist is not equal to the base
+        # wrist_p = self.mj_data.body('palm').xpos
+        # wrist_R = self.mj_data.body('palm').xmat.reshape((3,3))
+        # self.gr_data.kinematics['base']['p'] = wrist_p
+        # self.gr_data.kinematics['base']['R'] = wrist_R
 
         l_dip_p = self.mj_data.body('l_dip').xpos
         l_dip_R = self.mj_data.body('l_dip').xmat.reshape((3,3))

@@ -1,0 +1,5 @@
+controller:
+  name: postrajdemo
+  params:
+    control_dt: 0.003333333
+    hand_control_mode: position
