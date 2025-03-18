@@ -57,14 +57,20 @@ class GraspingVelocityFieldController:
         # object info
         xo = sim.mj_data.body('object').xpos
         Ro = sim.mj_data.body('object').xmat.reshape(3, 3)
+        print(Ro)
         geom_id = mj.mj_name2id(sim.mj_model, mj.mjtObj.mjOBJ_GEOM, "object")
         box_size = sim.mj_model.geom_size[geom_id]
 
-        angles = (np.array([0.0, 0.0, 0.1]).reshape(1, 3)@Ro).reshape(3,)
+        R_candidates = np.concatenate([Ro, -Ro], axis=1)
+        angles = (np.array([0.0, 0.0, 1]).reshape(1, 3)@R_candidates).reshape(6,)
         max_idx = np.argmax(angles)
-        nhat = Ro[:, max_idx] # (3,)
+        if max_idx < 3:
+            nhat = Ro[:, max_idx] # (3,)
+        else:
+            nhat = -Ro[:, max_idx-3]
 
-        thats = np.delete(Ro, max_idx, axis=1) # (3, 2)
+        max_idx = np.mod(max_idx, 3)
+        thats = np.delete(Ro, max_idx-3, axis=1) # (3, 2)
         thats_pm = np.concatenate([thats, -thats], axis=1) # (3, 4)
         max_idx2 = np.argmax((xd.reshape(1, 3)@thats_pm).reshape(4,))
         
@@ -78,8 +84,8 @@ class GraspingVelocityFieldController:
         err_T = 0.01
         err_thr = 0.03
         V_tan = 3
-        Vc = 2
-        Vd = 100
+        Vc = 3
+        Vd = 50
 
         ehat = (xc_des - xc)/np.clip(np.linalg.norm(xc_des - xc), a_min=1.0e-6, a_max=np.inf)
         phi = np.arccos((ehat*nhat).sum())

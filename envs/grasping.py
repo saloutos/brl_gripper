@@ -85,18 +85,19 @@ class TopDownGraspingEnv:
         mj.mj_forward(self.sim.mj_model, self.sim.mj_data)
 
     def update(self, time):
-        if time < 5:
-            self.mode = 0
-        if (time > 5) and (self.mode == 0):
-            obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
-            start = self.sim.mj_model.body_dofadr[obj_id]
-            self.sim.mj_data.qpos[start:start+3] = [0.0, 0.1, self.box_size[2]*0.5 + 0.005]
-            self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
-            self.mode = 1
-        if (time > 10) and (self.mode == 1):
-            obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
-            start = self.sim.mj_model.body_dofadr[obj_id]
-            self.sim.mj_data.qpos[start:start+3] = [0.0, 0.2, self.box_size[2]*0.5 + 0.005]
-            self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
-            self.mode = 2
+        pass
+        # if time < 5:
+        #     self.mode = 0
+        # if (time > 5) and (self.mode == 0):
+        #     obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
+        #     start = self.sim.mj_model.body_dofadr[obj_id]
+        #     self.sim.mj_data.qpos[start:start+3] = [0.0, 0.1, self.box_size[2]*0.5 + 0.005]
+        #     self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
+        #     self.mode = 1
+        # if (time > 10) and (self.mode == 1):
+        #     obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
+        #     start = self.sim.mj_model.body_dofadr[obj_id]
+        #     self.sim.mj_data.qpos[start:start+3] = [0.0, 0.2, self.box_size[2]*0.5 + 0.005]
+        #     self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
+        #     self.mode = 2
         

@@ -225,12 +225,12 @@
         <motor name="8_r_pip"   group="2"   gear="1"    joint="8_r_pip"     ctrllimited="true"  ctrlrange="-3 3"/>
         <motor name="9_r_dip"   group="2"   gear="1"    joint="9_r_dip"     ctrllimited="true"  ctrlrange="-3 3"/>
 
-        <motor name="0_base_x" joint="floating_2" gear="1 0 0 0 0 0" ctrlrange="-100 100" ctrllimited="true"/>
-        <motor name="0_base_y" joint="floating_2" gear="0 1 0 0 0 0" ctrlrange="-100 100" ctrllimited="true"/>
-        <motor name="0_base_z" joint="floating_2" gear="0 0 1 0 0 0" ctrlrange="-100 100" ctrllimited="true"/>
-        <motor name="0_base_roll" joint="floating_2" gear="0 0 0 1 0 0" ctrlrange="-100 100" ctrllimited="true"/>
-        <motor name="0_base_pitch" joint="floating_2" gear="0 0 0 0 1 0" ctrlrange="-100 100" ctrllimited="true"/>
-        <motor name="0_base_yaw" joint="floating_2" gear="0 0 0 0 0 1" ctrlrange="-100 100" ctrllimited="true"/>
+        <motor name="0_base_x" joint="floating_2" gear="1 0 0 0 0 0" ctrlrange="-1000 1000" ctrllimited="true"/>
+        <motor name="0_base_y" joint="floating_2" gear="0 1 0 0 0 0" ctrlrange="-1000 1000" ctrllimited="true"/>
+        <motor name="0_base_z" joint="floating_2" gear="0 0 1 0 0 0" ctrlrange="-1000 1000" ctrllimited="true"/>
+        <motor name="0_base_roll" joint="floating_2" gear="0 0 0 1 0 0" ctrlrange="-1000 1000" ctrllimited="true"/>
+        <motor name="0_base_pitch" joint="floating_2" gear="0 0 0 0 1 0" ctrlrange="-1000 1000" ctrllimited="true"/>
+        <motor name="0_base_yaw" joint="floating_2" gear="0 0 0 0 0 1" ctrlrange="-1000 1000" ctrllimited="true"/>
     </actuator>
 
 </mujoco>
