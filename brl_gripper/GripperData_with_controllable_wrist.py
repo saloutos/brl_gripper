@@ -45,16 +45,30 @@ class GripperDataV2(GripperData):
         self.kinematics['l_dip_tip'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,15)), 'JacR':np.zeros((3,15))}
         self.kinematics['r_dip_tip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,15)), 'JacR':np.zeros((3,15))}
         
+        self.kinematics['base'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,15)), 'JacR':np.zeros((3,15))}
+
         self.qrfc_bias = np.zeros((15,))
 
     def get_rb_data(self, var_name):
         return self.base.__dict__[var_name]
     
+    def get_p(self):
+        return self.get_rb_data('p')
+    
+    def get_R(self):
+        return self.get_rb_data('R')
+
     def get_w(self):
         return self.get_rb_data('w')
     
     def get_v(self):
         return self.get_rb_data('v')
+    
+    def set_p(self, data):
+        self.base.__dict__['p'] = data
+
+    def set_R(self, data):
+        self.base.__dict__['R'] = data
     
     def set_F_ff(self, data):
         self.base.__dict__['F_ff'] = data

@@ -1,0 +1,11 @@
+controller:
+  name: vfc_grasping
+  params:
+    control_dt: 0.002
+    hand_control_mode: current
+env:
+  name: topdown_grasping
+  xml_path: scene_v2
+  gp_type: v2
+  box_size: [0.03, 0.03, 0.05]
+  density: 1000

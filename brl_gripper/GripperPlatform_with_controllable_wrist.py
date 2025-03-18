@@ -89,16 +89,29 @@ class GripperPlatformV2(GripperPlatform):
         self.gr_data.kinematics['r_dip_force']['p'] = r_dip_force_p
         self.gr_data.kinematics['r_dip_force']['R'] = r_dip_force_R
 
+        # added for base
+        self.gr_data.base.p = self.mj_data.body('floating_2').xpos
+        self.gr_data.base.R = self.mj_data.body('floating_2').xmat.reshape((3,3))
+        self.gr_data.base.w = self.mj_data.body('floating_2').cvel[:3]
+        self.gr_data.base.v = self.mj_data.body('floating_2').cvel[3:]
+        
         # get fingertip jacobians (w.r.t. world frame)
         Jacp = np.zeros((3, self.mj_model.nv))
         JacR = np.zeros((3, self.mj_model.nv))
+        
         mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, l_dip_tip_p, self.mj_model.body('l_dip_tip').id)
         self.gr_data.kinematics['l_dip_tip']['Jacp'] = Jacp[:,:15].copy()
         self.gr_data.kinematics['l_dip_tip']['JacR'] = JacR[:,:15].copy()
+        
         mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, r_dip_tip_p, self.mj_model.body('r_dip_tip').id)
         self.gr_data.kinematics['r_dip_tip']['Jacp'] = Jacp[:,:15].copy()
         self.gr_data.kinematics['r_dip_tip']['JacR'] = JacR[:,:15].copy()
-        
+
+        mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, self.gr_data.base.p, self.mj_model.body('floating_2').id)
+        self.gr_data.kinematics['base']['Jacp'] = Jacp[:,:15].copy()
+        self.gr_data.kinematics['base']['JacR'] = JacR[:,:15].copy()
+
+
         # get coriolis bias + gravity bias for all joints
         # temp_qvel = self.mj_data.qvel.copy()
         # self.mj_data.qvel = np.zeros(self.mj_model.nv)
@@ -133,12 +146,6 @@ class GripperPlatformV2(GripperPlatform):
                 self.gr_data.joints[key].q = self.mj_data.joint(key).qpos
                 self.gr_data.joints[key].qd = self.mj_data.joint(key).qvel
                 self.gr_data.joints[key].tau = self.mj_data.joint(key).qfrc_actuator
-
-            # added for base
-            self.gr_data.base.p = self.mj_data.body('floating_2').xpos
-            self.gr_data.base.R = self.mj_data.body('floating_2').xmat.reshape((3,3))
-            self.gr_data.base.w = self.mj_data.body('floating_2').cvel[:3]
-            self.gr_data.base.v = self.mj_data.body('floating_2').cvel[3:]
             
             # get contact location data for fingertips
             # TODO: should we just do this for phalanges too?
