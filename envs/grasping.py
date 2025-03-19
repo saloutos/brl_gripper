@@ -15,7 +15,7 @@ class TopDownGraspingEnv:
             self, 
             xml_path='scenev2', 
             gp_type='v2', 
-            box_size=[0.03, 0.03, 0.03],
+            box_size=[0.01, 0.01, 0.1],
             density=1000,
             *args, 
             **kwargs

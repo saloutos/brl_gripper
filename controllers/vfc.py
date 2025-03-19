@@ -176,22 +176,20 @@ class GraspingVelocityFieldController:
         q_dot_des[8] = attracting_field(q_thr, q[8])
         return q_dot_des * weight
 
-    def vf_finger_normal_force(self, R_ldipf, R_rdipf, lf_frame, rf_frame, V=5):
-        lf_cp = R_ldipf @ lf_frame[:3, 2]
-        rf_cp = R_rdipf @ rf_frame[:3, 2]
+    def vf_finger_normal_force(self, lf_cp, rf_cp, V=5):
         return V*np.concatenate([lf_cp, rf_cp])
     
-    def vf_finger_orientation(self, R_ldipf, R_rdipf, lf_frame, rf_frame, x_lft, x_rft, V=5):
-        lf_cp = R_ldipf @ lf_frame[:3, 2]
-        rf_cp = R_rdipf @ rf_frame[:3, 2]
+    # def vf_finger_orientation(self, R_ldipf, R_rdipf, lf_frame, rf_frame, x_lft, x_rft, V=5):
+    #     lf_cp = R_ldipf @ lf_frame[:3, 2]
+    #     rf_cp = R_rdipf @ rf_frame[:3, 2]
 
-        e = x_rft - x_lft
-        ehat = e/np.linalg.norm(e)
+    #     e = x_rft - x_lft
+    #     ehat = e/np.linalg.norm(e)
 
-        inner_prod = (lf_cp*ehat).sum()
-        lf_w = np.cross(lf_cp, ehat) * np.arccos(inner_prod)
-        rf_w = np.cross(rf_cp, -ehat) * np.arccos(inner_prod)
-        return V*np.concatenate([lf_w, rf_w])
+    #     inner_prod = (lf_cp*ehat).sum()
+    #     lf_w = np.cross(lf_cp, ehat) * np.arccos(inner_prod)
+    #     rf_w = np.cross(rf_cp, -ehat) * np.arccos(inner_prod)
+    #     return V*np.concatenate([lf_w, rf_w])
         
     def vf_lifting_up_and_rotating(self, xc, Vc=10, vel_thr=10):
         xc_dot_des = Vc*(np.array([0.0, 0.0, 0.3]) - xc)
@@ -233,12 +231,8 @@ class GraspingVelocityFieldController:
 
         # tactile
         lf_contact_flag, rf_contact_flag, lf_ca, lf_cf, rf_ca, rf_cf, lf_frame, rf_frame = self.tactile_sensors(sim)
-        print(f"lf_contact_flag: {lf_contact_flag}, rf_contact_flag: {rf_contact_flag}\n")
-        if printstr:
-            print(f"lf_ca (left finger contact points): {lf_ca}\n")
-            print(f"lf_cf (left finger contact forces): {lf_cf}\n")
-            print(f"rf_ca (right finger contact points): {rf_ca}\n")
-            print(f"rf_cf (right finger contact forces): {rf_cf}\n")
+        lf_cp = R_ldipf @ lf_frame[:3, 2] # left finger contact normal in world frame
+        rf_cp = R_rdipf @ rf_frame[:3, 2] # right finger contact normal in world frame
 
         # finite state machine
         # check antipodal grasp condition
@@ -255,6 +249,15 @@ class GraspingVelocityFieldController:
                 self.state = 'regrasping'                
         else:
             self.state = 'reaching'
+        print(f"state: {self.state}\n")
+
+        if printstr:
+            print(f"lf_ca (left finger contact points): {lf_ca}\n")
+            print(f"lf_cf (left finger contact forces): {lf_cf}\n")
+            print(f"rf_ca (right finger contact points): {rf_ca}\n")
+            print(f"rf_cf (right finger contact forces): {rf_cf}\n")
+
+        
         
         ######################################
         ######################################
@@ -283,9 +286,10 @@ class GraspingVelocityFieldController:
             f_orientation = (J_p.T@p_dot_des.reshape(3, 1)).flatten()
             
             f_ctrl = f_fingers  + f_orientation + f_finger_pose 
+
         elif self.state == 'stable_grasp':
             # normal force
-            vf_finger_normal_force = self.vf_finger_normal_force(R_ldipf, R_rdipf, lf_frame, rf_frame)
+            vf_finger_normal_force = self.vf_finger_normal_force(lf_cp, rf_cp)
             f_contact_following = J_xft.T@vf_finger_normal_force
 
             # lfiting and moving
