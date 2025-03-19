@@ -12,7 +12,7 @@
         </default>
         <!-- TODO: add defaults for contact parameters for different sensor bodies? -->
         <default class="contact">
-            <geom conaffinity="1" contype="1" condim="6" priority="1" friction="1.0 0.02 0.0001" solimp="0.95 0.99 0.001 0.5 2"  solref="0.005 1"/>
+            <geom conaffinity="1" contype="1" condim="6" priority="1" friction="1.0 0.02 0.02" solimp="0.95 0.99 0.001 0.5 2"  solref="0.005 1"/>
         </default>
         <default class="no_contact">
             <geom conaffinity="0" contype="0" priority="0"/>
@@ -40,14 +40,14 @@
         </body> -->
 
         <body name="floating_2" pos="0 0 0.1" euler="0 0 0">
-            <inertial mass="5.0" pos="0 0 0" diaginertia="0.1 0.1 0.1"/>
+            <inertial mass="5.0" pos="0 0 0" diaginertia="2 2 2"/>
             <geom name="floating_2" type="sphere" group="1" size="0.02" rgba="0.2 0.2 0.2 1" class="contact"/>
             <site name="floating_2" group="4" pos="0.1 0 0" euler="0 0 0" size="0.01" rgba="0.1 0.1 0.1 0.2"/>
             <freejoint name="floating_2"/>
 
             <!-- PALM -->
             <body name="palm" pos="0 0 0" >
-                <inertial pos="0.0749802 -4.70306e-06 -0.0266387" quat="0.00107158 0.711377 -0.0010321 0.702809" mass="1.5008" diaginertia="0.00408874 0.0030361 0.00192975"/>
+                <inertial pos="0.0749802 -4.70306e-06 -0.0266387" quat="0.00107158 0.711377 -0.0010321 0.702809" mass="1.5008" diaginertia="0.00408874 0.0030361 0.00192975"/> 
                 <joint name="1_w_roll" group="0" class="AK606" pos="0 0 0" axis="1 0 0" range="-12.5 12.5"/>
                 <geom name="palm" type="mesh" class="contact" group="1" density="0" rgba="0.45 0.45 0.45 1" mesh="palm_structure"/>
                 <geom name="palm_sensor" type="mesh" class="contact" group="2" density="0" rgba="0.75 0.75 1 1" mesh="palm_sensor"/>

@@ -49,6 +49,12 @@ class GripperDataV2(GripperData):
 
         self.qrfc_bias = np.zeros((15,))
 
+    def get_contact_data(self, var_name):
+        angle = self.sensors[var_name].__dict__['contact_angle']
+        force = self.sensors[var_name].__dict__['contact_force']
+        frame = self.sensors[var_name].__dict__['T_sensor_contact']
+        return angle, force, frame
+
     def get_rb_data(self, var_name):
         return self.base.__dict__[var_name]
     

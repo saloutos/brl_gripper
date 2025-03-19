@@ -16,7 +16,7 @@ class TopDownGraspingEnv:
             xml_path='scenev2', 
             gp_type='v2', 
             box_size=[0.03, 0.03, 0.03],
-            density=50,
+            density=1000,
             *args, 
             **kwargs
         ):
@@ -47,7 +47,7 @@ class TopDownGraspingEnv:
             "pos": "0 0 0",
             "rgba": "0.7 0.2 0.1 0.6",
             "density": f"{density}",
-            "class": "contact"
+            "class": "contact",
         })
         new_body.append(box_geom)
 
