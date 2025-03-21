@@ -38,7 +38,7 @@ class GraspingVelocityFieldController:
 
         # set initial state
         self.state = 'reaching'
-        self.q_nominal = np.array([0., 0., 0, -30*np.pi/180, -30*np.pi/180, 0., 0, 30*np.pi/180, 30*np.pi/180]) 
+        self.q_nominal = np.array([0., 0., 15*np.pi/180, -30*np.pi/180, -30*np.pi/180, 0., -15*np.pi/180, 30*np.pi/180, 30*np.pi/180]) 
         self.normal_force_des = 0.1
         self.contact_history = [False] * 5
         self.normal_max = 10
@@ -267,8 +267,8 @@ class GraspingVelocityFieldController:
         ## velocity field construction
         if self.state == 'reaching' or self.state == 'table_contact_while_reaching':
             k_reaching = 1
-            k_repulsion = 0.5
-            k_hand_position = 0.5
+            k_repulsion = 1
+            k_hand_position = 1
             k_finger_pose = 0.5
 
             # We assume that we can sample a new grasp pose only while reaching
@@ -283,6 +283,7 @@ class GraspingVelocityFieldController:
 
             # finger tips reaching + repulsion from table
             x_ft_dot_des = self.vf_reaching_two_fingers(xc, xd, self.xc_des, self.xd_des, self.nhat, Vc=10, Vd=100)
+            vf_reaching_two_fingers = self.apply_velocity_clipping(x_ft_dot_des, 3)
             f_fingers = k_reaching*J_xft.T@(x_ft_dot_des - x_ft_dot)
  
             # Note this is not a velocity, but a force #
