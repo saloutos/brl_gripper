@@ -1,0 +1,33 @@
+<mujoco model="scene">
+
+  <include file="hand_with_controllable_wrist.xml" />
+
+  <include file="visual.xml" />
+
+  <asset>
+    <texture name="blue_grid" type="2d" builtin="checker" rgb1=".02 .14 .44" rgb2=".27 .55 1" width="300" height="300" mark="edge" markrgb="1 1 1" />
+    <material name="blue_grid" texture="blue_grid" texrepeat="1 1" texuniform="true" reflectance=".2" />
+    <texture name="grey_grid" type="2d" builtin="checker" rgb1=".26 .26 .26" rgb2=".6 .6 .6" width="300" height="300" mark="edge" markrgb="1 1 1" />
+    <material name="grey_grid" texture="grey_grid" texrepeat="1 1" texuniform="true" reflectance=".2" />
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 -0.1 0.5" dir="0 0.2 -1" diffuse="0.7 0.7 0.7" specular="0.3 0.3 0.3" directional="true" castshadow="true" />
+    <geom name="floor" group="0" size="0 0 0.05" type="plane" material="groundplane" friction="0.5 0.02 0.02" />
+
+    
+    <body name="upper_camera" pos="-0.1 0 0.5" euler="0 2.356 1.5707963308">
+        <camera name="upper_camera" mode="fixed" pos="0 0 0" euler="0 3.1415926516 0" />
+        <geom name="upper_camera" type="box" group="0" size="0.05 0.01 0.01" rgba="0.2 0.2 0.2 1" class="no_contact" />
+    </body>
+
+  <body name="object" pos="0.0 0.0 0.01"><freejoint /><geom name="object" type="box" size="0.01 0.07 0.01" pos="0 0 0" rgba="0.7 0.2 0.1 0.6" density="1000" class="contact" /></body></worldbody>
+
+  <option cone="elliptic" tolerance="1e-10" impratio="10" timestep="0.001" integrator="implicitfast" solver="Newton" noslip_iterations="0">
+    <flag contact="enable" override="disable" multiccd="disable" />
+  </option>
+
+</mujoco>

@@ -92,9 +92,9 @@ class GripperPlatformV2(GripperPlatform):
         # added for base
         self.gr_data.base.p = self.mj_data.body('floating_2').xpos
         self.gr_data.base.R = self.mj_data.body('floating_2').xmat.reshape((3,3))
-        self.gr_data.base.w = self.mj_data.body('floating_2').cvel[:3]
+        # self.gr_data.base.w = self.mj_data.body('floating_2').cvel[:3]
+        self.gr_data.base.w = self.mj_data.qvel[3:6]
         self.gr_data.base.v = self.mj_data.body('floating_2').cvel[3:]
-        
         # get fingertip jacobians (w.r.t. world frame)
         Jacp = np.zeros((3, self.mj_model.nv))
         JacR = np.zeros((3, self.mj_model.nv))
@@ -110,7 +110,7 @@ class GripperPlatformV2(GripperPlatform):
         mj.mj_jac(self.mj_model, self.mj_data, Jacp, JacR, self.gr_data.base.p, self.mj_model.body('floating_2').id)
         self.gr_data.kinematics['base']['Jacp'] = Jacp[:,:15].copy()
         self.gr_data.kinematics['base']['JacR'] = JacR[:,:15].copy()
-
+        
 
         # get coriolis bias + gravity bias for all joints
         # temp_qvel = self.mj_data.qvel.copy()

@@ -7,5 +7,5 @@ env:
   name: topdown_grasping
   xml_path: scene_v2
   gp_type: v2
-  box_size: [0.07, 0.01, 0.01]
+  box_size: [0.01, 0.07, 0.01]
   density: 1000

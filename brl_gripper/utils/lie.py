@@ -13,9 +13,17 @@ def unskew(W):
 def expso3(w):
     """ Returns the matrix exponential of a skew-symmetric matrix. """
     theta = np.linalg.norm(w)
-    
     w_skew = skew(w)
     if theta < 1e-5:
         return np.eye(3) + w_skew + (1/2) * (w_skew @ w_skew)
     else:
         return np.eye(3) + np.sin(theta) / theta * w_skew + (1 - np.cos(theta)) / (theta**2) * (w_skew @ w_skew)
+    
+def logSO3(R):
+    """ Returns the logarithm of a rotation matrix. """
+    cos_theta = np.clip((np.trace(R) - 1) / 2, -1, 1)
+    theta = np.arccos(cos_theta)
+    if theta < 1e-5:
+        return (R - R.T)/2
+    W = (R - R.T) * theta / (2 * np.sin(theta))
+    return W

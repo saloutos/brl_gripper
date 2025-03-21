@@ -97,27 +97,32 @@ class FingertipSensorData(SensorData):
     # logging functions
     def log_data(self):
         return self.contact_force.tolist()+self.contact_angle.tolist()+self.dist.tolist()
+    
     def log_header(self):
         return [self.name+"_fx",self.name+"_fy",self.name+"_fz",
                 self.name+"_theta",self.name+"_phi",
                 self.name+"_dist1",self.name+"_dist2",self.name+"_dist3",self.name+"_dist4",self.name+"_dist5"]
+    
     # initialization functions
     def set_force_offset(self, offset=None):
         if offset is not None:
             self.contact_force_offset = offset
         else:
             self.contact_force_offset = self.contact_force_raw.copy()
+
     def set_dist_offset(self, offset=None):
         if offset is not None:
             self.dist_offset = offset
         else:
             self.dist_offset = self.dist.copy()
+
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
         self.contact_force_raw = new_data[0]
         self.contact_angle_raw = new_data[1]
         self.tof_raw = new_data[2]
+
     def update_raw_data_from_sim(self, new_data):
         # new data should come in as dict with mujoco sensor names and data as arrays
         sim_force_data = new_data['force']
@@ -136,6 +141,7 @@ class FingertipSensorData(SensorData):
         # process tof data to re-create raw hardware data
         sim_tof_data = np.where(sim_tof_data==-1.0, 0.255, sim_tof_data)
         self.tof_raw = np.round(1000.0*sim_tof_data)
+
     def process_data(self):
         self.filter_contact_force()
         # TODO: only filter angle if contact force is above threshold
@@ -156,14 +162,17 @@ class FingertipSensorData(SensorData):
             self.contact_force = (1.0-alpha)*self.contact_force + alpha*(self.contact_force_raw-self.contact_force_offset)
         else:
             self.contact_force = (1.0-self.contact_force_filter_alpha)*self.contact_force + self.contact_force_filter_alpha*(self.contact_force_raw-self.contact_force_offset)
+    
     def filter_contact_angle(self, alpha=None):
         if alpha is not None:
             self.contact_angle = (1.0-alpha)*self.contact_angle + alpha*self.contact_angle_raw
         else:
             self.contact_angle = (1.0-self.contact_angle_filter_alpha)*self.contact_angle + self.contact_angle_filter_alpha*self.contact_angle_raw
+    
     def convert_tof_data(self):
         self.tof_raw = np.where(self.tof_raw==0, 254, self.tof_raw)
         self.dist = (self.tof_raw/1000.0) - self.dist_offset  # convert mm to m, apply offset
+    
     # visualization of hardware data
     def sync_data_to_viewer(self, scene, start_idx):
         # TODO: check self.kinematics, where is it set and is rotation matrix correct?

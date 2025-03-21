@@ -18,7 +18,7 @@
   <worldbody>
     <light pos="0 -0.1 0.5" dir="0 0.2 -1" diffuse="0.7 0.7 0.7" specular="0.3 0.3 0.3"
         directional="true" castshadow="true"/>
-    <geom name="floor" group="0" size="0 0 0.05" type="plane" material="groundplane"/>
+    <geom name="floor" group="0" size="0 0 0.05" type="plane" material="groundplane" friction="0.5 0.02 0.02"/>
 
     <!-- FIXED CAMERA -->
     <body name="upper_camera" pos="-0.1 0 0.5" euler="0 2.356 1.5707963308">
