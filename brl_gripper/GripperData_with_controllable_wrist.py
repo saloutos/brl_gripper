@@ -46,7 +46,6 @@ class GripperDataV2(GripperData):
         self.kinematics['r_dip_tip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,15)), 'JacR':np.zeros((3,15))}
         
         self.kinematics['base'] = {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,15)), 'JacR':np.zeros((3,15))}
-
         self.qrfc_bias = np.zeros((15,))
 
     def get_contact_data(self, var_name):

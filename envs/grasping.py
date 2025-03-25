@@ -9,14 +9,14 @@ import xml.etree.ElementTree as ET
 import tempfile
 
 import numpy as np
+from envs.utils import get_object_body
 
 class TopDownGraspingEnv:
     def __init__(
             self, 
             xml_path='scenev2', 
             gp_type='v2', 
-            box_size=[0.01, 0.01, 0.1],
-            density=1000,
+            obj_cfg={'obj_type': 'box'},
             *args, 
             **kwargs
         ):
@@ -35,21 +35,7 @@ class TopDownGraspingEnv:
         worldbody = root.find("worldbody")
 
         # Create a new body for the object (not a geom) with a free joint
-        self.box_size = box_size
-        new_body = ET.Element("body", {"name": "object", "pos": f"0.0 0.0 {box_size[2]*0.5 + 0.005}"})
-
-        freejoint = ET.Element("freejoint")
-        new_body.append(freejoint)
-        box_geom = ET.Element("geom", {
-            "name": "object",
-            "type": "box",
-            "size": f"{box_size[0]} {box_size[1]} {box_size[2]}",
-            "pos": "0 0 0",
-            "rgba": "0.7 0.2 0.1 0.6",
-            "density": f"{density}",
-            "class": "contact",
-        })
-        new_body.append(box_geom)
+        new_body = get_object_body(**obj_cfg)
 
         # Append the new body to the worldbody element
         if worldbody is not None:
@@ -83,21 +69,6 @@ class TopDownGraspingEnv:
         self.sim.mj_data.qpos[start:start+3] = [0.0, 0.0, 0.5]
         self.sim.mj_data.qpos[start+3:start+7] = [1.0, 0.0, 0.0, 0.0]
         mj.mj_forward(self.sim.mj_model, self.sim.mj_data)
-
+    
     def update(self, time):
         pass
-        # if time < 5:
-        #     self.mode = 0
-        # if (time > 5) and (self.mode == 0):
-        #     obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
-        #     start = self.sim.mj_model.body_dofadr[obj_id]
-        #     self.sim.mj_data.qpos[start:start+3] = [0.0, 0.1, self.box_size[2]*0.5 + 0.005]
-        #     self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
-        #     self.mode = 1
-        # if (time > 10) and (self.mode == 1):
-        #     obj_id = mj.mj_name2id(self.sim.mj_model, mj.mjtObj.mjOBJ_BODY, "object")
-        #     start = self.sim.mj_model.body_dofadr[obj_id]
-        #     self.sim.mj_data.qpos[start:start+3] = [0.0, 0.2, self.box_size[2]*0.5 + 0.005]
-        #     self.sim.mj_data.qpos[start+3:start+7] = [1, 0, 0, 0]
-        #     self.mode = 2
-        
