@@ -3,22 +3,22 @@ controller:
   params:
     control_dt: 0.002
     hand_control_mode: current
-  observation_error: False # noise to perperdicular to nhat and xdhat
+  observation_error: True # noise to perperdicular to nhat and xdhat
 env:
   name: topdown_grasping
   xml_path: scene_v2
   gp_type: v2
   # long, flat box (showing grasping while smoothly having contacts with table)
-  obj_cfg:
-    obj_type: box
-    size: [0.01, 0.07, 0.01]
-    density: 1000
+  # obj_cfg:
+  #   obj_type: box
+  #   size: [0.01, 0.07, 0.01]
+  #   density: 1000
   
   # cylinder (requiring stable re-grasps)
-  # obj_cfg:
-  #   obj_type: cylinder
-  #   size: [0.04, 0.04]
-  #   density: 1000
+  obj_cfg:
+    obj_type: cylinder
+    size: [0.04, 0.04]
+    density: 1000
 
   # long, fat object (requiring re-grasp for flat surfaces)
   # obj_cfg:

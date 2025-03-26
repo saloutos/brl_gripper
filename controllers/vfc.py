@@ -37,6 +37,9 @@ class GraspingVelocityFieldController:
         self.xd_des = np.array([0.0, 0.0, 0.0]) # default difference of finger tips
         self.nhat = np.array([0.0, 0.0, 1.0]) # default reaching normal
 
+        # init time
+        self.init_time = sim.time() 
+
         ## Addede by YHLee
         # Notation
         # p: base position (base means floating_2 in mujoco)
@@ -346,66 +349,76 @@ class GraspingVelocityFieldController:
             return q_dot
 
     def stable_grasp_classifier(self, lf_cp, rf_cp, x_lft, x_rft, angle_thr=5 * np.pi/180):
-        vec = (x_rft - x_lft)[:2]
+        vec = (x_rft - x_lft)
         unit_vec = vec/np.linalg.norm(vec)
-        unit_lf_cp_xy = lf_cp[:2]/np.linalg.norm(lf_cp[:2])
-        unit_rf_cp_xy = rf_cp[:2]/np.linalg.norm(rf_cp[:2])
+        unit_lf_cp = lf_cp/np.linalg.norm(lf_cp)
+        unit_rf_cp = rf_cp/np.linalg.norm(rf_cp)
         
-        l_angle_xy = np.arccos(np.clip((unit_lf_cp_xy*unit_vec).sum(), a_min=-1, a_max=1))
-        r_angle_xy = np.arccos(np.clip(-(unit_rf_cp_xy*unit_vec).sum(), a_min=-1, a_max=1))
+        l_angle = np.arccos(np.clip((unit_lf_cp*unit_vec).sum(), a_min=-1, a_max=1))
+        r_angle = np.arccos(np.clip(-(unit_rf_cp*unit_vec).sum(), a_min=-1, a_max=1))
         
-        if l_angle_xy < angle_thr and r_angle_xy < angle_thr:
+        if l_angle < angle_thr and r_angle < angle_thr:
             return True
         else:
-            print(f"left finger angle to contact normal: {l_angle_xy * 180/np.pi}")
-            print(f"right finger angle to contact normal: {r_angle_xy * 180/np.pi}")
+            print(f"left finger angle to contact normal: {l_angle * 180/np.pi}")
+            print(f"right finger angle to contact normal: {r_angle * 180/np.pi}")
             return False
 
-    def transition2contact_states(self, lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf):
+    def transition2contact_states(self, lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf, printstr=False):
         stable_grasp_flag = self.stable_grasp_classifier(lf_cp, rf_cp, x_lft, x_rft)
         if not stable_grasp_flag:
-            print(f"{self.state} -> regrasping\n")
+            if printstr:
+                print(f"{self.state} -> regrasping\n")
             self.state = 'regrasping'
         else:
             slip_flag = self.slip_flag(lf_cf, rf_cf)
             if slip_flag:
-                print(f"{self.state} -> slipping\n")
+                if printstr:
+                    print(f"{self.state} -> slipping\n")
                 self.state = 'slipping'
             else:
-                print(f"{self.state} -> stable_grasp\n")
+                if printstr:
+                    print(f"{self.state} -> stable_grasp\n")
                 self.state = 'stable_grasp'
 
     def finite_state_machine(
-            self, contact_flag, x_lft, x_rft, lf_cp, rf_cp, lf_cf, rf_cf):
+            self, contact_flag, x_lft, x_rft, lf_cp, rf_cp, lf_cf, rf_cf, printstr=False):
+        if printstr:
+            print(f"contact_flag: {contact_flag}")
         if self.state == 'reaching' or self.state == 'table_contact_while_reaching':
             if not contact_flag:
-                print(f"{self.state} -> reaching\n")
+                if printstr:
+                    print(f"{self.state} -> reaching\n")
                 self.state = 'reaching'
             else:
                 contact_type = self.contact_classifier(x_lft, x_rft)
                 if contact_type == 'table':
-                    print(f"{self.state} -> table_contact_while_reaching\n")
+                    if printstr:
+                        print(f"{self.state} -> table_contact_while_reaching\n")
                     self.state = 'table_contact_while_reaching'
-                    print(f'lf_contact_force: {np.linalg.norm(lf_cf)} \n')
-                    print(f'rf_contact_force: {np.linalg.norm(rf_cf)} \n')
+                    if printstr:
+                        print(f'lf_contact_force: {np.linalg.norm(lf_cf)} \n')
+                        print(f'rf_contact_force: {np.linalg.norm(rf_cf)} \n')
                 else:
-                    self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf)
+                    self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf, printstr=printstr)
                 
         elif self.state == 'regrasping':
             if not any(self.contact_history_for_regrasp2reach):
-                print(f"{self.state} -> reaching\n")
+                if printstr:
+                    print(f"{self.state} -> reaching\n")
                 self.state = 'reaching'
             else:
-                self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf)
+                self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf, printstr=printstr)
 
         elif self.state == 'stable_grasp' or self.state == 'slipping':
             if not contact_flag:
-                print(f"{self.state} -> reaching\n")
+                if printstr:
+                    print(f"{self.state} -> reaching\n")
                 self.state = 'reaching'
             else:
-                self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf)
-        
-        print(f"state: {self.state}\n")
+                self.transition2contact_states(lf_cp, rf_cp, x_lft, x_rft, lf_cf, rf_cf, printstr=printstr)
+        if printstr:
+            print(f"state: {self.state}\n")
 
         if self.state == 'stable_grasp':
             self.stable_grasp_flag = self.stable_grasp_flag[1:] + [True]
@@ -419,7 +432,7 @@ class GraspingVelocityFieldController:
         else:
             return v
     
-    def update(self, sim, printstr=False):
+    def update(self, sim):
         gr_data = sim.gr_data
 
         # proprioception
@@ -446,9 +459,9 @@ class GraspingVelocityFieldController:
             self.contact_history = self.contact_history[1:] + [False]
             self.contact_history_for_regrasp2reach = self.contact_history_for_regrasp2reach[1:] + [False]
         contact_flag = any(self.contact_history)
-        print(f"contact_flag: {contact_flag}")
 
-        self.finite_state_machine(contact_flag, x_lft, x_rft, lf_cp, rf_cp, lf_cf, rf_cf)
+        print(f"[New Iteration] Simulation Time: {sim.time() - self.init_time:.4f} sec")
+        self.finite_state_machine(contact_flag, x_lft, x_rft, lf_cp, rf_cp, lf_cf, rf_cf, printstr=True)
         
         ######################################
         ######################################
@@ -499,7 +512,7 @@ class GraspingVelocityFieldController:
             f_position = k_top_down_grasp*J_p.T@(p_dot_des - v)
 
             # finger pose
-            q_dot_des = self.vf_finger_pose(xc, self.xc_des, q, V=10)
+            q_dot_des = self.vf_finger_pose(xc, self.xc_des, q, V=3)
             q_dot_des = self.project2prevent_impulse_to_table(
                 q_dot=q_dot_des, x_ft=x_ft, type='joint', Jac_q2x_lft_z=J_xft[2, 6:], Jac_q2x_rft_z=J_xft[5, 6:])
             f_finger_pose = k_finger_pose*(np.hstack([np.zeros(6,), q_dot_des]) - np.hstack([np.zeros(6,), q_dot]))
@@ -508,7 +521,7 @@ class GraspingVelocityFieldController:
 
         elif self.state == 'stable_grasp':
             k_normal = 1
-            k_lifting_p = 10
+            k_lifting_p = 100
             k_lifting_R = 1
 
             # reset xc_des_updated and xd_des_updated
