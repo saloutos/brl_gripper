@@ -196,6 +196,12 @@ class GraspingVelocityFieldController:
                 xhat*x_gw, -xhat*x_gw, yhat*y_gw, -yhat*y_gw,
                 xhat*x_gw, -xhat*x_gw, yhat*y_gw, -yhat*y_gw,
             ], axis=0) # (24, 3)
+
+            if obs_err:
+                w = np.array([0, 0, 0.5])
+                noise_R = expso3(w)
+                xd_candidates = xd_candidates@noise_R
+
         elif obj_type == 5: # cylinder
             cylinder_size = sim.mj_model.geom_size[geom_id]
             radius = cylinder_size[0]
@@ -218,12 +224,14 @@ class GraspingVelocityFieldController:
                 sin_theta = np.sin(theta)
                 xd_candidates[i:i+1, :] = r_gw * (cos_theta * xhat + sin_theta * yhat)
                 xd_candidates[i+18:i+19, :] = xd_candidates[i:i+1, :]
+
+            if obs_err:
+                noise_dir = np.cross(xd_candidates/np.linalg.norm(xd_candidates, axis=1).reshape(-1, 1), nhat_candidates) 
+                xo_candidates += 0.3*np.linalg.norm(xd_candidates, axis=1).reshape(-1, 1)*noise_dir
         else:
             raise NotImplementedError
         
-        if obs_err:
-            noise_dir = np.cross(xd_candidates/np.linalg.norm(xd_candidates, axis=1).reshape(-1, 1), nhat_candidates) 
-            xo_candidates += 0.3*np.linalg.norm(xd_candidates, axis=1).reshape(-1, 1)*noise_dir
+        
 
         return xo_candidates, nhat_candidates, xd_candidates
 
@@ -246,7 +254,7 @@ class GraspingVelocityFieldController:
             xc_des, # (3,)
             xd_des, # (3,)
             nhat, # (3,)
-            phi_T=0.2*np.pi, 
+            phi_T=2*np.pi, 
             err_T=0.02,
             err_thr=0.01,
             Vphi=1,
@@ -260,15 +268,16 @@ class GraspingVelocityFieldController:
         error = np.linalg.norm((xc_des - xc))
         ehat = e/np.clip(error, a_min=1.0e-6, a_max=np.inf)
 
-        # velocity of the finger tip center (weighted sum of reaching and aligning ehat and nhat) 
-        phi = np.arccos(np.clip((ehat*nhat).sum(), a_min=-1, a_max=1)) # -pi ~ pi (pi: aligned, 0: perpendicular)
-        weight_phi = np.exp(-(np.pi - phi)/phi_T)
-        xc_dot_des = weight_phi * (xc_des - xc) + Vphi * (nhat - ehat*(ehat*nhat).sum()) * (1 - weight_phi)
-
         # velocity of the finger tip difference (depends on the finger tip center error)
         weight_err = np.tanh((error - err_thr)/err_T)
         xd_dot_des = (1 + weight_err)/2 * (Ad_max*xd_des - xd) + (1 - weight_err)/2 *(Ad_min*xd_des - xd)
-        
+
+        # velocity of the finger tip center (weighted sum of reaching and aligning ehat and nhat) 
+        phi = np.arccos(np.clip((ehat*nhat).sum(), a_min=-1, a_max=1)) # -pi ~ pi (pi: aligned, 0: perpendicular)
+        weight_phi = np.exp(-(np.pi - phi)/phi_T)
+        phi_err = (np.pi - phi)
+        xc_dot_des = weight_phi * (xc_des - xc) + Vphi * phi_err * (nhat - ehat*(ehat*nhat).sum()) * (1 - weight_phi)
+
         # coordinate transformation
         x_lft_dot_des = Vc*xc_dot_des + Vd*xd_dot_des 
         x_rft_dot_des = Vc*xc_dot_des - Vd*xd_dot_des
@@ -279,10 +288,12 @@ class GraspingVelocityFieldController:
         e = xc_des - p
         error = np.linalg.norm(e)
         ehat = e/np.clip(error, a_min=1.0e-6, a_max=np.inf)
-        p_dot_des = (nhat - ehat*(ehat*nhat).sum())
+        phi = np.arccos(np.clip((ehat*nhat).sum(), a_min=-1, a_max=1))
+        phi_err = np.pi - phi
+        p_dot_des = phi_err*(nhat - ehat*(ehat*nhat).sum())
         return V * p_dot_des
     
-    def vf_finger_pose(self, xc, xc_des, q, err_thr=0.1, err_T=0.001, V=1):
+    def vf_finger_pose(self, xc, xc_des, q, err_thr=0.1, err_T=0.01, V=1):
         error = np.linalg.norm((xc_des - xc))
         weight = np.exp(-np.clip(error - err_thr, a_min=0, a_max=np.inf)/err_T)
         v1 = (self.q_nominal - q)
@@ -291,7 +302,6 @@ class GraspingVelocityFieldController:
         v2[1] = q[5] - q[1]
         v2[5] = q[1] - q[5]
         q_dot_des = (1 - weight) * v1 + weight * v2
-
         return V * q_dot_des
        
     def vf_finger_normal_force(self, lf_cp, rf_cp, V=5):
@@ -452,7 +462,7 @@ class GraspingVelocityFieldController:
         rf_cp = R_rdipf @ rf_frame[:3, 2] # right finger contact normal in world frame
 
         # contact flag update
-        if lf_contact_flag or rf_contact_flag:
+        if lf_contact_flag | rf_contact_flag:
             self.contact_history = self.contact_history[1:] + [True] # for robust conatct detection
             self.contact_history_for_regrasp2reach = self.contact_history_for_regrasp2reach[1:] + [True]
         else:
@@ -499,12 +509,13 @@ class GraspingVelocityFieldController:
             # finger tips reaching
             x_ft_dot_des = self.vf_reaching(
                 xc, xd, self.xc_des, self.xd_des, self.nhat, 
-                Vc=10, Vd=100, err_T=0.005, err_thr=0.01,
-                Ad_max=1.5, Ad_min=0.0
+                Vc=10, Vd=100, Vphi=5, 
+                err_T=0.01, err_thr=0.02, phi_T=1*np.pi,
+                Ad_max=1.5, Ad_min=0.5
             )
             x_ft_dot_des = self.project2prevent_impulse_to_table(x_ft=x_ft, x_ft_dot=x_ft_dot_des, type='finget_tips')
             x_ft_dot_des = self.clip_velocity(x_ft_dot_des, 5)
-            f_fingers = k_reaching*J_xft.T@(x_ft_dot_des - x_ft_dot)
+            f_fingers = k_reaching*J_xft.T@(x_ft_dot_des - x_ft_dot) 
  
             # hand position matching
             p_dot_des = self.vf_top_down_grasp(p, self.xc_des, self.nhat, V=3)
@@ -557,7 +568,7 @@ class GraspingVelocityFieldController:
             f_contact_following = k_normal*J_xft.T@(vf_finger_normal_force - x_ft_dot)
             f_ctrl = f_contact_following
 
-        elif self.state == 'regrasping':
+        elif self.state == 'regrasping':  
             k_regrasping = 1
 
             ##########################################################
@@ -576,16 +587,20 @@ class GraspingVelocityFieldController:
             ##########################################################
 
             if lf_contact_flag and rf_contact_flag:
-                nl = -lf_cp
-                nr = -rf_cp
                 vec = x_rft - x_lft
-                tl = vec - (vec*nr).sum()*nr
-                tl = tl - (tl*nl).sum()*nl
+                unit_vec = vec/np.linalg.norm(vec)
+
+                tr = lf_cp - (lf_cp*unit_vec).sum()*unit_vec
+                tl = rf_cp - (rf_cp*unit_vec).sum()*unit_vec
+                
+                tl = tl - (lf_cp*tl).sum()*lf_cp
+                tr = tr - (rf_cp*tr).sum()*rf_cp
+
                 tl = tl/np.linalg.norm(tl)
-                tr = -vec + (vec*nl).sum()*nl
-                tr = tr - (tr*nr).sum()*nr
                 tr = tr/np.linalg.norm(tr)
+
                 self.xc_des_updated += step_size*(tl + tr) 
+                self.xd_des_updated += step_size*(tl - tr)
 
             x_ft_dot_des = self.vf_reaching(
                 xc, xd, self.xc_des_updated, self.xd_des_updated, 
@@ -595,7 +610,7 @@ class GraspingVelocityFieldController:
 
         # damping 
         f_damping = - np.array([
-            10, 10, 10, 
+            15, 15, 15, 
             1, 1, 1, 
             1.5, 
             0.001, 0.001, 0.001, 0.001,

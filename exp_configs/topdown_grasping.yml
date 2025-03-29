@@ -24,4 +24,4 @@ env:
   # obj_cfg:
   #   obj_type: box
   #   size: [0.02, 0.07, 0.02]
-  #   density: 1000
+  #   density: 1000 
