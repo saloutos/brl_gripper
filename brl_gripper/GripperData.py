@@ -65,6 +65,8 @@ class FingertipSensorData(SensorData):
         self.contact_angle_raw = np.array([0.0, 0.0])
         self.contact_force = np.array([0.0, 0.0, 0.0]) # fx, fy, fz in N  # fz is normal to surface
         self.contact_angle = np.array([0.0, 0.0])  # theta, phi in deg
+        self.contact_flag = np.array([0,0])
+
         # TODO: set a clearer ToF order here
         self.tof_raw = np.array([0, 0, 0, 0, 0])  # 1,2,3,4,5 in mm
         self.dist_offset = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
@@ -83,6 +85,7 @@ class FingertipSensorData(SensorData):
         self.contact_force_filter_alpha = 1.0
         self.contact_angle_filter_alpha = 1.0
         self.normal_force_threshold = 1.0
+        self.contact_flag_threshold = 0.5
         # variables for visualization
         # NOTE: center of rubber sphere is origin of sensor frame
         self.nominal_contact = np.array([0.0, 0.0, 0.01]) # sphere radius is 10mm
@@ -119,13 +122,20 @@ class FingertipSensorData(SensorData):
         # gotta put key logic in here, hard coded for now
         if len(new_data) == 1:
             self.tof_raw = new_data[0]
-        elif len(new_data) == 2:
-            self.contact_force_raw = new_data[0]
-            self.contact_angle_raw = new_data[1]
         elif len(new_data) == 3:
-            self.contact_force_raw = new_data[0]
+            Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            self.contact_force_raw = Fxyz # set equal to force values
+            self.contact_angle_raw = new_data[1]
+            self.contact_flag = new_data[2]
+        elif len(new_data) == 4:
+            # Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            # Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            Fxyz = np.array([0,0,new_data[0][-1]])
+            self.contact_force_raw = Fxyz
             self.contact_angle_raw = new_data[1]
             self.tof_raw = new_data[2]
+            self.contact_flag = new_data[3]
 
     def update_raw_data_from_sim(self, new_data):
         # new data should come in as dict with mujoco sensor names and data as arrays
@@ -145,10 +155,15 @@ class FingertipSensorData(SensorData):
         # process tof data to re-create raw hardware data
         sim_tof_data = np.where(sim_tof_data==-1.0, 0.255, sim_tof_data)
         self.tof_raw = np.round(1000.0*sim_tof_data)
+
+        # process contact flag data
+        self.contact_flag[0] = self.contact_force_raw[2] <= -0.5 #N
+        self.contact_flag[1] = self.contact_force_raw[2] <= -0.01 #N
+        
     def process_data(self):
         self.filter_contact_force()
-        # TODO: only filter angle if contact force is above threshold
         self.filter_contact_angle()
+        self.filter_by_contact_flag()
         self.convert_tof_data()
         # update other contact variables # TODO: verify this is correct
         theta_rad = np.deg2rad(self.contact_angle[0])
@@ -160,6 +175,12 @@ class FingertipSensorData(SensorData):
         self.T_sensor_contact[0:3,0:3] = R_cont
         self.T_sensor_contact[0:3,3:4] = R_cont.dot(self.nominal_contact).reshape((3,1))
 
+    
+    def filter_by_contact_flag(self):
+        if self.contact_flag[0] < self.contact_flag_threshold:
+            self.contact_force = np.array([0.0, 0.0, 0.0])
+            self.contact_angle = np.array([0.0, 0.0])
+        
     def filter_contact_force(self, alpha=None):
         if alpha is not None:
             self.contact_force = (1.0-alpha)*self.contact_force + alpha*(self.contact_force_raw-self.contact_force_offset)
@@ -191,6 +212,18 @@ class FingertipSensorData(SensorData):
             scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
             scene.geoms[idx].rgba = np.array([1, 0.2, 0, 0.5])
             idx += 1
+
+        # visualize sensitive contact flag 
+        scene.geoms[idx].type = 100 # arrow
+        scene.geoms[idx].pos = self.kinematics[0]
+        scene.geoms[idx].mat = self.kinematics[1]
+        if self.contact_flag[1] > 0.5:
+            scene.geoms[idx].size = np.array([0.002, 0.002, 0.02]) # pick some default hard coded size.
+            scene.geoms[idx].rgba=np.array([1, 0.5, 0, 0.5])
+        else:
+            scene.geoms[idx].size = np.array([0.002, 0.002, 0.00]) # pick some default hard coded size.
+            scene.geoms[idx].rgba=np.array([1, 0, 0, 1])
+        idx+=1
         # visualize force at contact location
         # arrow starts at pos, aligns with z-axis of sensor frame
         scene.geoms[idx].type = 100 # arrow
@@ -290,6 +323,26 @@ class EllipsoidFingertipSensorData(SensorData):
             self.dist_offset = offset
         else:
             self.dist_offset = self.dist.copy()
+    def sensor_to_contact_frame(self, contact_data, theta_rad, phi_rad):
+        #for ellipsoid, calculate force vector in contact frame
+        Fxyz = contact_data[0:3]
+        nominal_contact = np.array([0.0, 0.0, 0.01])
+        ellipse_params = np.array([0.0105, 0.009, 0.00635])
+        R_theta = np.array([[1, 0, 0], [0, np.cos(theta_rad), -np.sin(theta_rad)], [0, np.sin(theta_rad), np.cos(theta_rad)]]) # Rx by theta
+        R_phi = np.array([[np.cos(phi_rad), 0, np.sin(phi_rad)], [0, 1, 0], [-np.sin(phi_rad), 0, np.cos(phi_rad)]]) # Ry by phi
+        R_cont = (R_phi @ R_theta @ nominal_contact).T
+        #calculate radius of vector (intersection between ellipsoid and line in direction of R_cont)
+        contact_vec = self.line_ellipsoid_intersection(R_cont,ellipse_params)
+        #calculate normal vector at contact point
+        contact_vec_normal = 2*np.array([contact_vec[0]/ellipse_params[0]**2,contact_vec[1]/ellipse_params[1]**2,contact_vec[2]/ellipse_params[2]**2]) #find vector normal to surface at contact location
+        contact_vec_unit_normal = contact_vec_normal/np.linalg.norm(contact_vec_normal)
+        theta_rad_normal = np.arcsin(-contact_vec_unit_normal[1])
+        phi_rad_normal = np.arctan2(contact_vec_unit_normal[0], contact_vec_unit_normal[2])
+        R_theta_normal = np.array([[1, 0, 0], [0, np.cos(theta_rad_normal), -np.sin(theta_rad_normal)], [0, np.sin(theta_rad_normal), np.cos(theta_rad_normal)]]) # Rx by theta
+        R_phi_normal = np.array([[np.cos(phi_rad_normal), 0, np.sin(phi_rad_normal)], [0, 1, 0], [-np.sin(phi_rad_normal), 0, np.cos(phi_rad_normal)]]) # Ry by phi
+        R_cont_normal = R_phi_normal @ R_theta_normal
+        Fxyz_cont = R_cont_normal @ Fxyz.T
+        return (Fxyz_cont.T).squeeze()
     # processing sensor data
     def update_raw_data_from_hw(self, new_data):
         # new data should come in as list of arrays
@@ -297,11 +350,16 @@ class EllipsoidFingertipSensorData(SensorData):
         if len(new_data) == 1:
             self.tof_raw = new_data[0]
         elif len(new_data) == 3:
-            self.contact_force_raw = new_data[0]
+            Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            self.contact_force_raw = Fxyz # set equal to force values
             self.contact_angle_raw = new_data[1]
             self.contact_flag = new_data[2]
         elif len(new_data) == 4:
-            self.contact_force_raw = new_data[0]
+            # Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            # Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            Fxyz = np.array([0,0,new_data[0][-1]])
+            self.contact_force_raw = Fxyz
             self.contact_angle_raw = new_data[1]
             self.tof_raw = new_data[2]
             self.contact_flag = new_data[3]
@@ -331,10 +389,12 @@ class EllipsoidFingertipSensorData(SensorData):
         # process tof data to re-create raw hardware data
         sim_tof_data = np.where(sim_tof_data==-1.0, 0.255, sim_tof_data)
         self.tof_raw = np.round(1000.0*sim_tof_data)
-
+        
         # process contact flag data
-        self.contact_flag[0] = self.contact_force_raw[2] >= 1 #N
-        self.contact_flag[1] = self.contact_force_raw[2] >= 0.01 #N
+        self.contact_flag[0] = self.contact_force_raw[2] <= -0.5 #N
+        self.contact_flag[1] = self.contact_force_raw[2] <= -0.01 #N
+
+        # print("contact force: ", self.contact_force)
 
     def process_data(self):
         self.filter_contact_force()
@@ -366,7 +426,6 @@ class EllipsoidFingertipSensorData(SensorData):
         if self.contact_flag[0] < self.contact_flag_threshold:
             self.contact_force = np.array([0.0, 0.0, 0.0])
             self.contact_angle = np.array([0.0, 0.0])
-
         
     def filter_contact_force(self, alpha=None):
         if alpha is not None:
@@ -446,6 +505,18 @@ class EllipsoidFingertipSensorData(SensorData):
             scene.geoms[idx].mat = np.hstack((x/np.linalg.norm(x), y/np.linalg.norm(y), z/np.linalg.norm(z))) # full 3x3 matrix, not 9-vector
             scene.geoms[idx].rgba = np.array([1, 0.2, 0, 0.5])
             idx += 1
+
+        # visualize sensitive contact flag 
+        scene.geoms[idx].type = 100 # arrow
+        scene.geoms[idx].pos = self.kinematics[0]
+        scene.geoms[idx].mat = self.kinematics[1]
+        if self.contact_flag[1] > 0.5:
+            scene.geoms[idx].size = np.array([0.002, 0.002, 0.02]) # pick some default hard coded size.
+            scene.geoms[idx].rgba=np.array([1, 0.5, 0, 0.5])
+        else:
+            scene.geoms[idx].size = np.array([0.002, 0.002, 0.00]) # pick some default hard coded size.
+            scene.geoms[idx].rgba=np.array([1, 0, 0, 1])
+        idx+=1
         # visualize force at contact location
         # arrow starts at pos, aligns with z-axis of sensor frame
         scene.geoms[idx].type = 100 # arrow
@@ -612,6 +683,12 @@ class GripperData:
         self.kinematics['r_dip_tip'] =  {'p':np.zeros((3,)), 'R':np.eye(3), 'Jacp':np.zeros((3,4)), 'JacR':np.zeros((3,4))}
         self.kinematics['l_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
         self.kinematics['r_dip_force'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+        self.kinematics['l_dip'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+        self.kinematics['r_dip'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+
+        self.kinematics['l_mcp'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # pos, R, in world frame
+
+
 
         # TODO: this doesn't feel like the right way to do this
         self.kinematics['base_des'] = {'p': np.zeros((3,)), 'R':np.eye(3)} # desired base pos, R in world frame (for mocap body)

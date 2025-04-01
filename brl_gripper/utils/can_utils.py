@@ -16,12 +16,37 @@ KD_MAX = 10.0
 T_MIN = -72.0
 T_MAX = 72.0
 
-FT_MIN = -20.0
-FT_MAX = 20.0
-FN_MIN = -30.0
-FN_MAX = 30.0
+#original
+# FT_MIN = -20.0
+# FT_MAX = 20.0
+# FN_MIN = -30.0
+# FN_MAX = 30.0
 ANG_MIN = -135.0
-ANG_MAX =45.0
+ANG_MAX = 45.0
+
+#sphere rnn
+# FT_MIN = -10.0
+# FT_MAX = 10.0
+# FN_MIN = -10.0
+# FN_MAX = 2.0
+# THETA_ANG_MIN = -45.0
+# THETA_ANG_MAX = 45.0
+# PHI_ANG_MIN = -135.0
+# PHI_ANG_MAX = 45.0
+# CFLAG_MIN = 0.0
+# CFLAG_MAX = 1.0
+
+#ellipsoid rnn
+FT_MIN = -10.0
+FT_MAX = 10.0
+FN_MIN = -10.0
+FN_MAX = 2.0
+THETA_ANG_MIN = -34.0
+THETA_ANG_MAX = 34.0
+PHI_ANG_MIN = -54.0
+PHI_ANG_MAX = 54.0
+CFLAG_MIN = 0.0
+CFLAG_MAX = 1.0
 
 SCALE = 50.0
 
@@ -38,7 +63,6 @@ LEFT_COMMAND =          4
 RIGHT_COMMAND =         5
 WRIST_ID =              5
 PRSSENSOR_DATA = 		6
-SYSSENSOR_DATA = 		7
 
 # Gripper hardware modes
 class HandControlMode(Enum):

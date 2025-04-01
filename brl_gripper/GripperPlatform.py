@@ -40,15 +40,20 @@ class HardwareEnable(Enum):
     WRIST_ONLY     = 2 #[False, True] # just for completeness
     FINGERS_WRIST  = 3 #[True, True]
 
+# does the fingertip firmware send in raw pressure values
 class SensorDataMode(Enum):
     NO_PRESSURE_VALS = 0
     RAW_PRESSURE_VALS  = 1
 
+# is the fingertip firmware on the new 8 outputs version [fx, fy, fz, fn, theta, phi, contact flag1, contact flag2] or 5 outputs version [fx, fy, fz, theta, phi]
+class SensorVersion(Enum):
+    OUTPUT_5 = 0
+    OUTPUT_8 = 1
 # TODO: other defines here? other parameters or constants?
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, sensor_version = SensorVersion.OUTPUT_5, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
@@ -73,9 +78,9 @@ class GripperPlatform:
             else:
                 self.mode = PlatformMode.HW_NO_VIS
 
-            if sensor_mode:
+            if sensor_mode == SensorDataMode.RAW_PRESSURE_VALS:
                 #set neural net model names from config
-                self.sensor_mode = True
+                self.sensor_mode = SensorDataMode.RAW_PRESSURE_VALS
                 rnn_model_fname_lsensor = sensor_params.rnn_model_fname_lsensor
                 self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
                 self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
@@ -84,13 +89,18 @@ class GripperPlatform:
                 self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
                 self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
             else:
-                self.sensor_mode = False
+                self.sensor_mode = SensorDataMode.NO_PRESSURE_VALS
 
         else:
             if self.viewer_enable:
                 self.mode = PlatformMode.SIM_WITH_VIS
             else:
                 self.mode = PlatformMode.SIM_NO_VIS
+        
+        if sensor_version == SensorVersion.OUTPUT_5:
+            self.sensor_version = SensorVersion.OUTPUT_5
+        else:
+            self.sensor_version = SensorVersion.OUTPUT_8
 
         # load mujoco model and data
         self.mj_model = mj_model
@@ -343,7 +353,7 @@ class GripperPlatform:
                         can_message_2 = None
                     if (can_message_1 is not None):
                         # unpack message
-                        if (can_message_1.data[0] == 0 and can_message_1.data[1] == 0 and can_message_1.data[2] == 0 and can_message_1.data[3] == 0 ):
+                        if (can_message_1.arbitration_id != PRSSENSOR_DATA and can_message_1.data[0] == 0 and can_message_1.data[1] == 0 and can_message_1.data[2] == 0 and can_message_1.data[3] == 0 ):
                             print("Error Cleared!")
                         else:
                             if (can_message_1.arbitration_id == MOTOR_DATA):
@@ -351,15 +361,15 @@ class GripperPlatform:
                                 self.gr_data.set_q(self.gr_data.finger_idxs, dxl_pos)
                                 self.gr_data.set_qd(self.gr_data.finger_idxs, dxl_vel)
                                 self.gr_data.set_tau(self.gr_data.finger_idxs, dxl_tau)
-                            elif (can_message_1.arbitration_id == SENSOR_DATA):
+                            elif (can_message_1.arbitration_id == SENSOR_DATA and self.sensor_version == SensorVersion.OUTPUT_5):
                                 raw_sensor_data = self.unpack_sensors(can_message_1.data)
                                 self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data)
-                            elif (can_message_1.arbitration_id == PRSSENSOR_DATA):
+                            elif (self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS and can_message_1.arbitration_id == PRSSENSOR_DATA):
                                 raw_sensor_data = self.unpack_prssensors(can_message_1.data)
                                 self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
-                            elif (can_message_1.arbitration_id == SYSSENSOR_DATA):
-                                raw_sensor_data = self.unpack_syssensors(can_message_1.data)
-                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data) 
+                            elif (can_message_1.arbitration_id == SENSOR_DATA and self.sensor_version == SensorVersion.OUTPUT_8):
+                                raw_sensor_data = self.unpack_rnnsensors(can_message_1.data)
+                                self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data) 
                     if (can_message_2 is not None):
                         if(can_message_2.data[0] == 0 and can_message_2.data[1] == 0 and can_message_2.data[2] == 0 and can_message_2.data[3] == 0):
                             print("Error Cleared!")
@@ -413,6 +423,23 @@ class GripperPlatform:
         self.gr_data.kinematics['l_dip_tip']['R'] = l_dip_tip_R
         self.gr_data.kinematics['r_dip_tip']['p'] = r_dip_tip_p
         self.gr_data.kinematics['r_dip_tip']['R'] = r_dip_tip_R
+
+        # getting positions of link3
+        l_dip_p = self.mj_data.body('l_dip').xpos
+        l_dip_R = self.mj_data.body('l_dip').xmat.reshape((3,3))
+        r_dip_p = self.mj_data.body('r_dip').xpos
+        r_dip_R = self.mj_data.body('r_dip').xmat.reshape((3,3))
+        self.gr_data.kinematics['l_dip']['p'] = l_dip_p
+        self.gr_data.kinematics['l_dip']['R'] = l_dip_R
+        self.gr_data.kinematics['r_dip']['p'] = r_dip_p
+        self.gr_data.kinematics['r_dip']['R'] = r_dip_R
+
+        # temp getting position of base link 1
+        l_mcr_p = self.mj_data.body('l_mcp').xpos
+        l_mcr_R = self.mj_data.body('l_mcp').xmat.reshape((3,3))
+        self.gr_data.kinematics['l_mcp']['p'] = l_mcr_p
+        self.gr_data.kinematics['l_mcp']['R'] = l_mcr_R
+
 
         l_dip_force_p = self.mj_data.site('l_dip_force').xpos
         l_dip_force_R = self.mj_data.site('l_dip_force').xmat.reshape((3,3))
@@ -715,16 +742,32 @@ class GripperPlatform:
         right_pip_fsr2 = ((msg[44] & 0x0F) << 8) | msg[45]
         right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
 
+        # hard code contact flag. contact flag is always "on" when there is no contact flag.
+        left_dip_contact_flag = np.array([1.0,0])
+        right_dip_contact_flag = np.array([1.0,0])
+        
+
         # collect lists of arrays of raw data for each sensor
         # output is a dict of these lists
         # NOTE: these keys need to be the same as the names of the sensors in GripperData
-        all_data = {"palm":     [palm_fsr, palm_tof],
-                    "l_mcp":    [left_mcp_fsr, left_mcp_tof],
-                    "l_pip":    [left_pip_fsr, left_pip_tof],
-                    "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof],
-                    "r_mcp":    [right_mcp_fsr, right_mcp_tof],
-                    "r_pip":    [right_pip_fsr, right_pip_tof],
-                    "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]}
+        if self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS:
+            all_data = {
+                "l_dip":    [left_dip_tof],
+                "palm":     [palm_fsr, palm_tof],
+                "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                "l_pip":    [left_pip_fsr, left_pip_tof],
+                "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                "r_pip":    [right_pip_fsr, right_pip_tof],
+                "r_dip":    [right_dip_tof]
+                        }
+        else:
+            all_data = {"palm":     [palm_fsr, palm_tof],
+                        "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                        "l_pip":    [left_pip_fsr, left_pip_tof],
+                        "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof, left_dip_contact_flag],
+                        "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                        "r_pip":    [right_pip_fsr, right_pip_tof],
+                        "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof, right_dip_contact_flag]}
 
         return all_data
 
@@ -803,70 +846,115 @@ class GripperPlatform:
 
 
      #unpacking received sensor data message from gripper
-    def unpack_syssensors(self, msg):
-        # dip tof
-        left_dip_tof = np.array([msg[0],msg[1],msg[2],msg[3],msg[4]]) # left 0:4
-        right_dip_tof = np.array([msg[5],msg[6],msg[7],msg[8],msg[9]]) # right 0:4
-        
+    def unpack_rnnsensors(self, msg):
+       # fingertip sensors
+        fx_int1 = msg[0]
+        fy_int1 = msg[1]
+        fz_int1 = msg[2]
+        fn_int1 = msg[3]
+        theta_int1 = msg[4]
+        phi_int1 = msg[5]
+        contact_flag_int1 = msg[6]
+        contact_flag_raw_int1 = msg[7]
+
+        fx_int2 = msg[8]
+        fy_int2 = msg[9]
+        fz_int2 = msg[10]
+        fn_int2 = msg[11]
+        theta_int2 = msg[12]
+        phi_int2 = msg[13]
+        contact_flag_int2 = msg[14]
+        contact_flag_raw_int2 = msg[15]
+
+        fx_1 = uint_to_float(fx_int1, FT_MIN, FT_MAX, 8)
+        fy_1 = uint_to_float(fy_int1, FT_MIN, FT_MAX, 8)
+        fz_1 = uint_to_float(fz_int1, FT_MIN, FT_MAX, 8)
+        fn_1 = uint_to_float(fn_int1, FN_MIN, FN_MAX, 8)
+        theta_1 = uint_to_float(theta_int1, THETA_ANG_MIN, THETA_ANG_MAX, 8)
+        phi_1 = uint_to_float(phi_int1, PHI_ANG_MIN, PHI_ANG_MAX, 8)
+        contact_flag_1 = uint_to_float(contact_flag_int1, CFLAG_MIN, CFLAG_MAX, 8)
+
+        fx_2 = uint_to_float(fx_int2, FT_MIN, FT_MAX, 8)
+        fy_2 = uint_to_float(fy_int2, FT_MIN, FT_MAX, 8)
+        fz_2 = uint_to_float(fz_int2, FT_MIN, FT_MAX, 8)
+        fn_2 = uint_to_float(fn_int2, FN_MIN, FN_MAX, 8)
+        theta_2 = uint_to_float(theta_int2, THETA_ANG_MIN, THETA_ANG_MAX, 8)
+        phi_2 = uint_to_float(phi_int2, PHI_ANG_MIN, PHI_ANG_MAX, 8)
+        contact_flag_2 = uint_to_float(contact_flag_int2, CFLAG_MIN, CFLAG_MAX, 8)
+
+        # raw values for fingertip sensors
+        left_dip_force = np.array([fx_1, fy_1, fz_1, fn_1])
+        left_dip_angle = np.array([theta_1, phi_1])
+        left_dip_contact_flag = np.array([contact_flag_1, contact_flag_raw_int1]) 
+        right_dip_force = np.array([fx_2, fy_2, fz_2, fn_2])
+        right_dip_angle = np.array([theta_2, phi_2])
+        right_dip_contact_flag = np.array([contact_flag_2, contact_flag_raw_int2]) 
+        left_dip_tof = np.array([msg[16],msg[17],msg[18],msg[19],msg[20]]) # left 0:4
+        right_dip_tof = np.array([msg[21],msg[22],msg[23],msg[24],msg[25]]) # right 0:4
+
+        # print("left dip contact flag: ", left_dip_contact_flag)
+        # print("right dip force: ", right_dip_force)
+
         # raw values for palm sensor
-        palm_tof = np.array([msg[10]])
-        palm_fsr1 = (msg[11] << 4) | (msg[12] >> 4)
-        palm_fsr2 = ((msg[12] & 0x0F) << 8) | msg[13]
+        palm_tof = np.array([msg[26]])
+        palm_fsr1 = (msg[27] << 4) | (msg[28] >> 4)
+        palm_fsr2 = ((msg[28] & 0x0F) << 8) | msg[29]
         palm_fsr = np.array([palm_fsr1, palm_fsr2])
 
         # raw values for phalange sensors
-        left_mcp_tof = np.array([msg[14]]) # left mcp
-        left_mcp_fsr1 =  (msg[15] << 4) | (msg[16] >> 4)
-        left_mcp_fsr2 = ((msg[16] & 0x0F) << 8) | msg[17]
+        left_mcp_tof = np.array([msg[30]]) # left mcp
+        left_mcp_fsr1 =  (msg[31] << 4) | (msg[32] >> 4)
+        left_mcp_fsr2 = ((msg[32] & 0x0F) << 8) | msg[33]
         left_mcp_fsr = np.array([left_mcp_fsr1, left_mcp_fsr2])
 
-        left_pip_tof = np.array([msg[18]]) # left pip
-        left_pip_fsr1 =  (msg[19] << 4) | (msg[20] >> 4)
-        left_pip_fsr2 = ((msg[20] & 0x0F) << 8) | msg[21]
+        left_pip_tof = np.array([msg[34]]) # left pip
+        left_pip_fsr1 =  (msg[35] << 4) | (msg[36] >> 4)
+        left_pip_fsr2 = ((msg[36] & 0x0F) << 8) | msg[37]
         left_pip_fsr = np.array([left_pip_fsr1, left_pip_fsr2])
 
-        right_mcp_tof = np.array([msg[22]]) # right mcp
-        right_mcp_fsr1 =  (msg[23] << 4) | (msg[24] >> 4)
-        right_mcp_fsr2 = ((msg[24] & 0x0F) << 8) | msg[25]
+        right_mcp_tof = np.array([msg[38]]) # right mcp
+        right_mcp_fsr1 =  (msg[39] << 4) | (msg[40] >> 4)
+        right_mcp_fsr2 = ((msg[40] & 0x0F) << 8) | msg[41]
         right_mcp_fsr = np.array([right_mcp_fsr1, right_mcp_fsr2])
 
-        right_pip_tof = np.array([msg[26]]) # right pip
-        right_pip_fsr1 =  (msg[27] << 4) | (msg[28] >> 4)
-        right_pip_fsr2 = ((msg[28] & 0x0F) << 8) | msg[29]
+        right_pip_tof = np.array([msg[42]]) # right pip
+        right_pip_fsr1 =  (msg[43] << 4) | (msg[44] >> 4)
+        right_pip_fsr2 = ((msg[44] & 0x0F) << 8) | msg[45]
         right_pip_fsr = np.array([right_pip_fsr1, right_pip_fsr2])
-        
-        left_dip_force = np.array([0.0, 0.0, 0.0])
-        left_dip_angle = np.array([0.0, 0.0])
-        left_dip_contact_flag = np.array([0.0, 0.0])
-        right_dip_force = np.array([0.0, 0.0, 0.0])
-        right_dip_angle = np.array([0.0, 0.0])
-        right_dip_contact_flag = np.array([0.0, 0.0])
+
+        # left phal sensors broken on hand, set all sensors on phalenges to 0 since not using
+        left_mcp_tof = 1
+        left_mcp_fsr = np.array([4038, 4038])
+
+
+        left_pip_tof = 1
+        left_pip_fsr = np.array([4038, 4038])
+
+
+        right_mcp_tof = 1
+        right_mcp_fsr = np.array([4038, 4038])
+
+
+        right_pip_tof = 1
+        right_pip_fsr = np.array([4038, 4038])
+
+
+        # print("palm tof: ", palm_tof)
+        # print("palm fsr: ", palm_fsr, palm_fsr1, palm_fsr2)
 
         # collect lists of arrays of raw data for each sensor
         # output is a dict of these lists
         # NOTE: these keys need to be the same as the names of the sensors in GripperData
-        if self.sensor_mode:
-            all_data = {
-                "l_dip":    [left_dip_tof],
-                "palm":     [palm_fsr, palm_tof],
-                "l_mcp":    [left_mcp_fsr, left_mcp_tof],
-                "l_pip":    [left_pip_fsr, left_pip_tof],
-                "r_mcp":    [right_mcp_fsr, right_mcp_tof],
-                "r_pip":    [right_pip_fsr, right_pip_tof],
-                "r_dip":    [right_dip_tof]
-                        }
-        else:
-            all_data = {
-                "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof, left_dip_contact_flag],
-                "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof, right_dip_contact_flag],
-                "palm":     [palm_fsr, palm_tof],
-                "l_mcp":    [left_mcp_fsr, left_mcp_tof],
-                "l_pip":    [left_pip_fsr, left_pip_tof],
-                "l_dip":    [left_dip_tof],
-                "r_mcp":    [right_mcp_fsr, right_mcp_tof],
-                "r_pip":    [right_pip_fsr, right_pip_tof],
-                "r_dip":    [right_dip_tof]
-                }
+    
+        all_data = {
+            "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof, left_dip_contact_flag],
+            "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof, right_dip_contact_flag],
+            "palm":     [palm_fsr, palm_tof],
+            "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+            "l_pip":    [left_pip_fsr, left_pip_tof],
+            "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+            "r_pip":    [right_pip_fsr, right_pip_tof],
+            }
 
         return all_data
 
