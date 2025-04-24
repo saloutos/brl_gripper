@@ -10,6 +10,8 @@ from datetime import datetime as dt
 import select
 import os
 from enum import Enum
+import serial
+import threading
 
 import mujoco as mj
 import mujoco.viewer as mjv
@@ -45,7 +47,7 @@ class SensorDataMode(Enum):
     NO_PRESSURE_VALS = 0
     RAW_PRESSURE_VALS  = 1
 
-# is the fingertip firmware on the new 8 outputs version [fx, fy, fz, fn, theta, phi, contact flag1, contact flag2] or 5 outputs version [fx, fy, fz, theta, phi]
+# fingertip firmware on the new 8 outputs version [fx, fy, fz, fn, theta, phi, contact flag1, contact flag2] or 5 outputs version [fx, fy, fz, theta, phi]
 class SensorVersion(Enum):
     OUTPUT_5 = 0
     OUTPUT_8 = 1
@@ -53,11 +55,13 @@ class SensorVersion(Enum):
 
 # define the Gripper Platform class
 class GripperPlatform:
-    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, sensor_version = SensorVersion.OUTPUT_5, log_path=None):
+    def __init__(self, mj_model, viewer_enable=True, hardware_enable=HardwareEnable.NO_HW, sensor_mode = SensorDataMode.NO_PRESSURE_VALS, sensor_version = SensorVersion.OUTPUT_5, position_sensor = False, log_path=None):
         # based on enable flags, set platform mode
         # TODO: might not need to save flags as class variables, should use mode for everything from here onwards?
         # TODO: pass modes as arguments instead of flags, check modes everywhere? then can re-set mode bewteen init and initialize()
         self.viewer_enable = viewer_enable
+        self.position_sensor = position_sensor
+
         if hardware_enable==HardwareEnable.NO_HW:
             self.hardware_enable = False
             self.wrist_enable = False
@@ -81,13 +85,47 @@ class GripperPlatform:
             if sensor_mode == SensorDataMode.RAW_PRESSURE_VALS:
                 #set neural net model names from config
                 self.sensor_mode = SensorDataMode.RAW_PRESSURE_VALS
-                rnn_model_fname_lsensor = sensor_params.rnn_model_fname_lsensor
-                self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
-                self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
 
-                rnn_model_fname_rsensor = sensor_params.rnn_model_fname_rsensor
-                self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
-                self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
+                # variables for both sensors
+                self.calibration_begin = False
+                self.calibration_window = 30
+                self.pressure_calibration_samples = []
+                self.calibrated_offsets = False
+
+                self.temperature_calibration_samples = []
+                self.calibrated_intercepts = False
+
+
+                model_type = sensor_params.model_type
+                ModelClass = BinnedRNNModel if model_type == "binned rnn" else MLPModel
+
+                self.model_lsensor = ModelClass()
+                self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = self.model_lsensor.load(sensor_params.model_fname_lsensor)
+                self.state_lsensor = self.model_lsensor.initialize(self.nn_model_lsensor)
+
+                self.model_rsensor = ModelClass()
+                self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = self.model_rsensor.load(sensor_params.model_fname_rsensor)
+                self.state_rsensor = self.model_rsensor.initialize(self.nn_model_rsensor)
+
+
+                # rnn_model_fname_lsensor = sensor_params.rnn_model_fname_lsensor
+                # self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor = load_model(rnn_model_fname_lsensor)
+                # self.h_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor = init_run_binned_rnn(self.nn_model_lsensor)
+                self.previous_pressure_l = np.zeros(8,)
+                self.temperature_l = np.zeros(8,)
+                self.offsets_l = sensor_params.offsets_lsensor
+                self.slopes_l = sensor_params.slopes_lsensor
+                self.intercepts_l = np.zeros(8,)
+
+                # rnn_model_fname_rsensor = sensor_params.rnn_model_fname_rsensor
+                # self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor = load_model(rnn_model_fname_rsensor) 
+                # self.h_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor = init_run_binned_rnn(self.nn_model_rsensor)
+                self.previous_pressure_r = np.zeros(8,)
+                self.temperature_r = np.zeros(8,)
+                self.offsets_r = sensor_params.offsets_rsensor
+                self.slopes_r = sensor_params.slopes_rsensor
+                self.intercepts_r = np.zeros(8,)
+
             else:
                 self.sensor_mode = SensorDataMode.NO_PRESSURE_VALS
 
@@ -126,6 +164,10 @@ class GripperPlatform:
                     McpPhalangeSensorData("r_mcp"),PipPhalangeSensorData("r_pip"),EllipsoidFingertipSensorData("r_dip")]   # right finger
         else:
             print("sensor type is not known")
+
+        if self.position_sensor:
+            sensors.append(PositionSensor("extern_pos"))
+            
         self.gr_data = GripperData(joints,sensors)
 
         # general init for platform
@@ -162,6 +204,19 @@ class GripperPlatform:
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.HW_NO_VIS:
             # default mode, but this could change before initialize()
             self.hand_control_mode = HandControlMode.CURRENT_CONTROL
+
+            # if used encoder measurements, initialize serial
+            if self.position_sensor:
+                
+                self.ser = serial.Serial(port='/dev/ttyACM0', baudrate=921600, timeout=0.1)
+                self.latest_pos = None
+                self.previous_pos = None
+                self.rotation_count = 0
+                self.init_angle = None
+                serial_thread = threading.Thread(target=self.poll_serial, daemon=True)
+                serial_thread.start()
+
+
             # start CAN bus
             self.CAN_bus_1 = None
             self.CAN_bus_2 = None
@@ -195,7 +250,6 @@ class GripperPlatform:
                 print(f"CAN init failed: {e}")
 
     def initialize(self):
-
         # prepare mujoco model
         mj.mj_forward(self.mj_model, self.mj_data)
 
@@ -248,7 +302,10 @@ class GripperPlatform:
                 self.step()
                 time.sleep(0.0005)
             print("Gripper started.")
-            # TODO: any sensor init here? offset forces?
+
+            if self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS:
+                self.calibration_begin = True
+
 
         # save log start time
         if self.log_enable:
@@ -261,6 +318,10 @@ class GripperPlatform:
             if self.wrist_enable:
                 self.CAN_bus_2.send(can.Message(arbitration_id=WRIST_ID, data=U6_ExitMotorMode, is_extended_id=False))
             print("CAN bus disabled.")
+
+        if self.position_sensor:
+            self.ser.close()  # Clean up the serial port
+
         # TODO: close CAN busses properly?
         # close viewer
         if self.mode==PlatformMode.HW_WITH_VIS or self.mode==PlatformMode.SIM_WITH_VIS:
@@ -340,6 +401,7 @@ class GripperPlatform:
             if self.current_t - self.last_control_t > self.control_dt:
                 self.last_control_t = self.current_t
                 self.run_control = True
+            
             # poll for CAN messages
             # TODO: maybe move this to a separate function?
             num_tries = 0
@@ -353,7 +415,7 @@ class GripperPlatform:
                         can_message_2 = None
                     if (can_message_1 is not None):
                         # unpack message
-                        if (can_message_1.arbitration_id != PRSSENSOR_DATA and can_message_1.data[0] == 0 and can_message_1.data[1] == 0 and can_message_1.data[2] == 0 and can_message_1.data[3] == 0 ):
+                        if (can_message_1.arbitration_id != PRSSENSOR_DATA and can_message_1.arbitration_id != SYSSENSOR_DATA and can_message_1.data[0] == 0 and can_message_1.data[1] == 0 and can_message_1.data[2] == 0 and can_message_1.data[3] == 0 ):
                             print("Error Cleared!")
                         else:
                             if (can_message_1.arbitration_id == MOTOR_DATA):
@@ -361,15 +423,74 @@ class GripperPlatform:
                                 self.gr_data.set_q(self.gr_data.finger_idxs, dxl_pos)
                                 self.gr_data.set_qd(self.gr_data.finger_idxs, dxl_vel)
                                 self.gr_data.set_tau(self.gr_data.finger_idxs, dxl_tau)
+
                             elif (can_message_1.arbitration_id == SENSOR_DATA and self.sensor_version == SensorVersion.OUTPUT_5):
                                 raw_sensor_data = self.unpack_sensors(can_message_1.data)
                                 self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data)
-                            elif (self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS and can_message_1.arbitration_id == PRSSENSOR_DATA):
-                                raw_sensor_data = self.unpack_prssensors(can_message_1.data)
-                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
+
+                            # Pressure sensor data handling and calibrating
+                            elif (self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS and
+                                can_message_1.arbitration_id == PRSSENSOR_DATA):
+
+                                # After gripper initialization
+                                if self.calibration_begin:
+                                    if len(self.offsets_l) != 0 and not self.calibrated_offsets:
+
+                                        # Collect pressure samples for offset calibration
+                                        if len(self.pressure_calibration_samples) < self.calibration_window:
+                                            raw_prssensors = self.unpack_raw_prssensors(can_message_1.data)
+                                            self.pressure_calibration_samples.append(raw_prssensors)
+
+                                        # Compute offsets if enough samples collected and intercepts already done or not needed
+                                        elif (len(self.pressure_calibration_samples) == self.calibration_window and
+                                            ((len(self.slopes_l) != 0) == self.calibrated_intercepts)):
+                                            self.compute_offsets()
+                                            print("computed offsets")
+                                            print(self.offsets_l, self.offsets_r)
+
+                                        # Exit early during calibration to skip normal data handling
+                                        return
+
+                                    # Normal update after offset calibration
+                                    raw_sensor_data = self.unpack_prssensors(can_message_1.data)
+                                    self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
+
+                            # Hand sensors and temperature sensor data handling for calibration
+                            elif (self.sensor_mode == SensorDataMode.RAW_PRESSURE_VALS and
+                                can_message_1.arbitration_id == SYSSENSOR_DATA):
+
+                                # After gripper initialization
+                                if self.calibration_begin:
+                                    if len(self.slopes_l) != 0 and not self.calibrated_intercepts:
+
+                                        # Collect temperature samples
+                                        if len(self.temperature_calibration_samples) < self.calibration_window:
+                                            raw_temps = self.unpack_raw_temps(can_message_1.data)
+                                            self.temperature_calibration_samples.append(raw_temps)
+
+                                        # Compute intercepts after enough samples collected
+                                        elif len(self.temperature_calibration_samples) == self.calibration_window:
+                                            self.compute_intercepts()
+                                            print("computed intercepts")
+                                            print(self.intercepts_l, self.intercepts_r)
+
+                                        # Exit early during calibration
+                                        return
+
+                                    # Normal update after intercept calibration
+                                    raw_sensor_data = self.unpack_syssensors(can_message_1.data)
+                                    self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data)
+
+
                             elif (can_message_1.arbitration_id == SENSOR_DATA and self.sensor_version == SensorVersion.OUTPUT_8):
                                 raw_sensor_data = self.unpack_rnnsensors(can_message_1.data)
-                                self.gr_data.update_all_raw_sensor_data_from_hw(raw_sensor_data) 
+                                self.gr_data.update_some_raw_sensor_data_from_hw(raw_sensor_data) 
+
+                        if self.position_sensor:
+                            some_data = {"extern_pos":self.latest_pos}
+                            self.gr_data.update_some_raw_sensor_data_from_hw(some_data)
+
+    
                     if (can_message_2 is not None):
                         if(can_message_2.data[0] == 0 and can_message_2.data[1] == 0 and can_message_2.data[2] == 0 and can_message_2.data[3] == 0):
                             print("Error Cleared!")
@@ -468,8 +589,9 @@ class GripperPlatform:
         # TODO: better way to do this? initialize with corresponding site name for kinematics?
         sites = ['palm_tof', 'l_mcp_tof', 'l_pip_tof', 'l_dip_force', 'r_mcp_tof', 'r_pip_tof', 'r_dip_force']
         for idx, key in enumerate(self.gr_data.sensors.keys()):
-            self.gr_data.sensors[key].update_kinematics(self.mj_data.site(sites[idx]).xpos, \
-                                                        self.mj_data.site(sites[idx]).xmat.reshape((3,3)))
+            if key!= "extern_pos":
+                self.gr_data.sensors[key].update_kinematics(self.mj_data.site(sites[idx]).xpos, \
+                                                            self.mj_data.site(sites[idx]).xmat.reshape((3,3)))
         # TODO: capture all sensor site kinematics instead?
         # mj_sensors = [self.mj_model.sensor(i).name for i in range(self.mj_model.nsensor)]
         # for key in self.gr_data.sensors.keys():
@@ -480,7 +602,6 @@ class GripperPlatform:
         #             site_kinematics[new_key] = (self.mj_data.sensor(sensor).xpos, \
         #                                         self.mj_data.sensor(sensor).xmat.reshape((3,3)))
         #     self.gr_data.sensors[key].update_kinematics(site_kinematics) # TODO: would need to change this function
-
         # if simulation is enabled
         if self.mode==PlatformMode.SIM_WITH_VIS or self.mode==PlatformMode.SIM_NO_VIS:
             # fill gr_data from mj_data
@@ -541,6 +662,7 @@ class GripperPlatform:
             #  TODO: fill in any other data from sim?
         # update sensor data (i.e. apply filters, etc.)
         self.gr_data.process_all_sensor_data()
+        
 
     def apply_control(self):
         # update internal value of tau_command for each joint
@@ -772,7 +894,7 @@ class GripperPlatform:
         return all_data
 
     # unpacking received sensor data message from gripper with just pressure sensors
-    def unpack_prssensors(self, msg):
+    def unpack_prssensors_old(self, msg):
 
         # fingertip sensors
         pressure_raw1 = np.zeros((8,))
@@ -843,9 +965,164 @@ class GripperPlatform:
                     }
 
         return all_data
+    
+    # unpacking received sensor data message from gripper with just pressure sensors with contact flag implementation
+    def unpack_prssensors(self, msg):
 
+        sensitive_flag_threshold = 50
+
+        # # fingertip sensors
+        pressure_raw1 = np.zeros((8,))
+        pressure_raw2 = np.zeros((8,))
+        for i in range(len(pressure_raw1)):
+            pressure_raw1[i] = (msg[i*4 + 3] << 24) | (msg[i*4 + 2] << 16) | (msg[i*4 + 1] << 8) | msg[i*4]
+
+        for i in range(len(pressure_raw2)):
+            pressure_raw2[i] = (msg[i*4 + 3 + 32] << 24) | (msg[i*4 + 2 + 32] << 16) | (msg[i*4 + 1 + 32] << 8) | msg[i*4 + 32]
+
+        # the messages are sometimes corrupt
+        max_value = 4e9
+        if np.any(pressure_raw1 > max_value):
+            pressure_raw1 = self.previous_pressure_l.copy()
+
+        if np.any(pressure_raw2 > max_value):
+            pressure_raw2 = self.previous_pressure_r.copy()
+
+        left_sensitive_contact_flag = np.any((pressure_raw1 - self.previous_pressure_l) > sensitive_flag_threshold)
+        right_sensitive_contact_flag = np.any((pressure_raw2 - self.previous_pressure_r) > sensitive_flag_threshold)
+
+
+        self.previous_pressure_l = pressure_raw1.copy()
+        self.previous_pressure_r = pressure_raw2.copy()
+
+        
+        # might want to move this before the sensitive contact flag calc
+        if self.calibrated_intercepts:
+            pressure_raw1-= (self.slopes_l*self.temperature_l + self.intercepts_l)
+            pressure_raw2-= (self.slopes_r*self.temperature_r + self.intercepts_r)
+
+        if self.calibrated_offsets:
+            pressure_raw1+= self.offsets_l
+            pressure_raw2+= self.offsets_r
+
+        # float_formatter = "{:.6f}".format
+        # np.set_printoptions(formatter={'float_kind':float_formatter})
+        # print("pressure raw after offset: ",pressure_raw1)
+
+
+        fx_l,fy_l,fz_l,fn_l,theta_l,phi_l, contact_flag_l = self.evaluate_sensor_model(pressure_raw1,"l")
+        fx_r,fy_r,fz_r,fn_r,theta_r,phi_r, contact_flag_r = self.evaluate_sensor_model(pressure_raw2,"r")
+
+        # raw values for fingertip sensors
+        left_dip_force = np.array([fx_l, fy_l, fz_l,fn_l])
+        left_dip_angle = np.array([theta_l, phi_l])
+        left_contact_flag = np.array([contact_flag_l,left_sensitive_contact_flag])
+        right_dip_force = np.array([fx_r, fy_r, fz_r,fn_r])
+        right_dip_angle = np.array([theta_r, phi_r])
+        right_contact_flag = np.array([contact_flag_r,right_sensitive_contact_flag])
+
+        # left_dip_force = np.array([0, 0, 5])
+        # left_dip_angle = np.array([0, 0])
+        # left_contact_flag = np.array([0,left_sensitive_contact_flag])
+        # right_dip_force = np.array([0, 0, 1])
+        # right_dip_angle = np.array([0, 0])
+        # right_contact_flag = np.array([0,right_sensitive_contact_flag])
+
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = { "l_dip":    [left_dip_force, left_dip_angle, left_contact_flag],
+                    "r_dip":    [right_dip_force, right_dip_angle, right_contact_flag]
+                    # "palm":     [palm_fsr, palm_tof],
+                    # "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    # "l_pip":    [left_pip_fsr, left_pip_tof],
+                    # "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof],
+                    # "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    # "r_pip":    [right_pip_fsr, right_pip_tof],
+                    # "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof]
+                    
+                    }
+
+        return all_data
+    
+
+    #unpacking received sensor data message from gripper and temperature data
+    def unpack_syssensors(self, msg):
+
+        # dip tof
+        left_dip_tof = np.array([msg[0],msg[1],msg[2],msg[3],msg[4]]) # left 0:4
+        right_dip_tof = np.array([msg[5],msg[6],msg[7],msg[8],msg[9]]) # right 0:4
+        # raw values for palm sensor
+        palm_tof =  1 #np.array([msg[10]]) -> also isn't working??
+        palm_fsr1 = (msg[11] << 4) | (msg[12] >> 4)
+        palm_fsr2 = ((msg[12] & 0x0F) << 8) | msg[13]
+        palm_fsr = np.array([palm_fsr1, palm_fsr2])
+
+        # fingertip temps
+        temperature1 = np.zeros((8,))
+        temperature2 = np.zeros((8,))
+
+        temperature1[0] = msg[32]|(msg[33] << 8)
+        temperature1[1] = msg[34]|(msg[35] << 8)
+        temperature1[2] = msg[36]|(msg[37] << 8)
+        temperature1[3] = msg[38]|(msg[39] << 8)
+        temperature1[4] = msg[40]|(msg[41] << 8)
+        temperature1[5] = msg[42]|(msg[43] << 8)
+        temperature1[6] = msg[44]|(msg[45] << 8)
+        temperature1[7] = msg[46]|(msg[47] << 8)
+
+
+        temperature2[0] = msg[48]|(msg[49] << 8)
+        temperature2[1] = msg[50]|(msg[51] << 8)
+        temperature2[2] = msg[52]|(msg[53] << 8)
+        temperature2[3] = msg[54]|(msg[55] << 8)
+        temperature2[4] = msg[56]|(msg[57] << 8)
+        temperature2[5] = msg[58]|(msg[59] << 8)
+        temperature2[6] = msg[60]|(msg[61] << 8)
+        temperature2[7] = msg[62]|(msg[63] << 8)
+
+        # convert to celcius
+        temperature_multiplier = 1000.0
+        temperature1/=temperature_multiplier
+        temperature2/=temperature_multiplier
+
+        self.temperature_l = temperature1.copy()
+        self.temperature_r = temperature2.copy()
+
+        # raw values for phalange sensors
+        # left phal sensors broken on hand, set all sensors on phalenges to 0 since not using
+        left_mcp_tof = 1
+        left_mcp_fsr = np.array([4038, 4038])
+
+        left_pip_tof = 1
+        left_pip_fsr = np.array([4038, 4038])
+
+        right_mcp_tof = 1
+        right_mcp_fsr = np.array([4038, 4038])
+
+        right_pip_tof = 1
+        right_pip_fsr = np.array([4038, 4038])
+
+
+        
+        # collect lists of arrays of raw data for each sensor
+        # output is a dict of these lists
+        # NOTE: these keys need to be the same as the names of the sensors in GripperData
+        all_data = {
+                    "l_dip":    [left_dip_tof],
+                    "r_dip":    [right_dip_tof],
+                    "palm":     [palm_fsr, palm_tof],
+                    "l_mcp":    [left_mcp_fsr, left_mcp_tof],
+                    "l_pip":    [left_pip_fsr, left_pip_tof],
+                    "l_dip":    [left_dip_tof],
+                    "r_mcp":    [right_mcp_fsr, right_mcp_tof],
+                    "r_pip":    [right_pip_fsr, right_pip_tof],
+                    "r_dip":    [right_dip_tof]}
+
+        return all_data
 
      #unpacking received sensor data message from gripper
+    
     def unpack_rnnsensors(self, msg):
        # fingertip sensors
         fx_int1 = msg[0]
@@ -894,6 +1171,8 @@ class GripperPlatform:
 
         # print("left dip contact flag: ", left_dip_contact_flag)
         # print("right dip force: ", right_dip_force)
+        # print("left dip force: ", left_dip_force)
+
 
         # raw values for palm sensor
         palm_tof = np.array([msg[26]])
@@ -945,7 +1224,8 @@ class GripperPlatform:
         # collect lists of arrays of raw data for each sensor
         # output is a dict of these lists
         # NOTE: these keys need to be the same as the names of the sensors in GripperData
-    
+
+
         all_data = {
             "l_dip":    [left_dip_force, left_dip_angle, left_dip_tof, left_dip_contact_flag],
             "r_dip":    [right_dip_force, right_dip_angle, right_dip_tof, right_dip_contact_flag],
@@ -955,35 +1235,198 @@ class GripperPlatform:
             "r_mcp":    [right_mcp_fsr, right_mcp_tof],
             "r_pip":    [right_pip_fsr, right_pip_tof],
             }
+        
+        # print("all data: " , all_data)
 
         return all_data
 
+
+    # read position sensor
+    def read_position(self):
+        try:
+            data = float(self.ser.readline().decode().split(":")[1].strip())
+        except (IndexError, ValueError):
+            data = None
+        return data
+
+    def poll_serial(self):
+        while True:
+            pos = self.read_position()
+            if pos:
+                if self.init_angle is None:
+                    # Set initial conditions
+                    self.init_angle = pos
+                    self.previous_pos = pos  # <-- important: use `pos` not 0
+                    self.rotation_count = 0
+                    self.latest_pos = 0  # Start at zero relative to initial angle
+                    continue
+
+                delta = pos - self.previous_pos
+
+                # Detect wraparound
+                if delta > np.pi:
+                    self.rotation_count -= 1  # Wrapped backward
+                elif delta < -np.pi:
+                    self.rotation_count += 1  # Wrapped forward
+
+                self.previous_pos = pos
+
+                # Compute the unwrapped angle
+                unwrapped_angle = pos + self.rotation_count * 2 * np.pi
+
+                # Delta from initial angle (starts at 0)
+                self.latest_pos = unwrapped_angle - self.init_angle
+
+                # print("self.latest_pos: ", self.latest_pos)
+                            
+
+    
+    # additional functions for calibration
+    def unpack_raw_prssensors(self, msg):
+        pressure_raw1 = np.zeros((8,))
+        pressure_raw2 = np.zeros((8,))
+        for i in range(len(pressure_raw1)):
+            pressure_raw1[i] = (msg[i*4 + 3] << 24) | (msg[i*4 + 2] << 16) | (msg[i*4 + 1] << 8) | msg[i*4]
+
+        for i in range(len(pressure_raw2)):
+            pressure_raw2[i] = (msg[i*4 + 3 + 32] << 24) | (msg[i*4 + 2 + 32] << 16) | (msg[i*4 + 1 + 32] << 8) | msg[i*4 + 32]
+
+        return np.concatenate([pressure_raw1, pressure_raw2])
+    
+    def unpack_raw_temps(self, msg):
+        # fingertip temps
+        temperature1 = np.zeros((8,))
+        temperature2 = np.zeros((8,))
+
+        temperature1[0] = msg[32]|(msg[33] << 8)
+        temperature1[1] = msg[34]|(msg[35] << 8)
+        temperature1[2] = msg[36]|(msg[37] << 8)
+        temperature1[3] = msg[38]|(msg[39] << 8)
+        temperature1[4] = msg[40]|(msg[41] << 8)
+        temperature1[5] = msg[42]|(msg[43] << 8)
+        temperature1[6] = msg[44]|(msg[45] << 8)
+        temperature1[7] = msg[46]|(msg[47] << 8)
+
+
+        temperature2[0] = msg[48]|(msg[49] << 8)
+        temperature2[1] = msg[50]|(msg[51] << 8)
+        temperature2[2] = msg[52]|(msg[53] << 8)
+        temperature2[3] = msg[54]|(msg[55] << 8)
+        temperature2[4] = msg[56]|(msg[57] << 8)
+        temperature2[5] = msg[58]|(msg[59] << 8)
+        temperature2[6] = msg[60]|(msg[61] << 8)
+        temperature2[7] = msg[62]|(msg[63] << 8)
+
+        temperature1/=1000.0
+        temperature2/=1000.0
+        return np.concatenate([temperature1, temperature2])
+    
+    def compute_offsets(self):
+        """
+        Computes and stores the pressure sensor offsets after calibration.
+        Applies temperature correction if intercepts/slopes are available.
+        """
+
+        self.pressure_calibration_samples = np.array(self.pressure_calibration_samples)
+
+        pressure_left = self.pressure_calibration_samples[:, :8]
+        pressure_right = self.pressure_calibration_samples[:, 8:]
+
+        temperature_left = self.temperature_calibration_samples[:, :8]
+        temperature_right = self.temperature_calibration_samples[:, 8:]
+
+        # If slope/intercept calibration has been performed, remove temperature effects
+        if len(self.slopes_l) != 0:
+            pressure_left -= (self.slopes_l * temperature_left + self.intercepts_l)
+            pressure_right -= (self.slopes_r * temperature_right + self.intercepts_r)
+
+        # Compute average pressure for each sensor across all samples
+        pressure_avg_left = np.mean(pressure_left, axis=0)
+        pressure_avg_right = np.mean(pressure_right, axis=0)
+
+        # offset = - current pressure + desired baseline pressures
+        self.offsets_l = -pressure_avg_left + self.offsets_l
+        self.offsets_r = -pressure_avg_right + self.offsets_r
+
+        # offset calibration is complete
+        self.calibrated_offsets = True
+
+    def compute_intercepts(self):
+        """
+        Computes temperature-pressure intercepts for each sensor using
+        the current slopes and collected calibration samples.
+        """
+
+        self.temperature_calibration_samples = np.array(self.temperature_calibration_samples)
+        self.pressure_calibration_samples = np.array(self.pressure_calibration_samples)
+
+        temperature_left = self.temperature_calibration_samples[:, :8]
+        temperature_right = self.temperature_calibration_samples[:, 8:]
+
+        pressure_left = self.pressure_calibration_samples[:, :8]
+        pressure_right = self.pressure_calibration_samples[:, 8:]
+
+        # Compute average pressure and temperature for each sensor
+        pressure_avg_left = np.mean(pressure_left, axis=0)
+        pressure_avg_right = np.mean(pressure_right, axis=0)
+
+        temperature_avg_left = np.mean(temperature_left, axis=0)
+        temperature_avg_right = np.mean(temperature_right, axis=0)
+
+        # Intercept = avg_pressure - slope * avg_temperature
+        self.intercepts_l = pressure_avg_left - self.slopes_l * temperature_avg_left
+        self.intercepts_r = pressure_avg_right - self.slopes_r * temperature_avg_right
+
+        # temp calibration is complete
+        self.calibrated_intercepts = True
+
+
+
+
     #evaluate model. take in 8 pressure values and predict 3 axis force and contact location
+    # def evaluate_sensor_model(self, pressure_vals, sensor_value):
+
+    #     if sensor_value == "l":
+    #         #evaluate model and return values for sensor 1
+    #         sensor_data_left, h_left = run_binned_rnn(pressure_vals,self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor, self.h_lsensor, sensor_params.sensor_type)
+    #         self.h_lsensor = h_left
+    #         # print(sensor_data_left)
+    #         #have to convert fx, fy, fz into sensor frame to stay consistent 
+    #         # print("pressure left: ",pressure_vals)
+    #         # print("[" + " ".join(f"{value:.8f }" for value in sensor_data_left) + "]")
+    #         return sensor_data_left
+    #         # return np.array([0,0,0.05,0,0])
+
+    #     elif sensor_value =="r":
+    #         #evaluate model and return values for sensor 2
+    #         sensor_data_right, h_right = run_binned_rnn(pressure_vals,self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor, self.h_rsensor, sensor_params.sensor_type)
+    #         self.h_rsensor = h_right
+    #         # print("pressure right: ",pressure_vals)
+    #         # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_right) + "]")
+    #         # print("contact flag right: ", sensor_data_right[-1])
+    #         return sensor_data_right
+    #         # return np.array([0,0,0,10,10])
+
+    #     else:
+    #         print("sensor type is not known")
+
+
     def evaluate_sensor_model(self, pressure_vals, sensor_value):
-
         if sensor_value == "l":
-            #evaluate model and return values for sensor 1
-            sensor_data_left, h_left = run_binned_rnn(pressure_vals,self.nn_model_lsensor, self.std_dev_X_lsensor, self.mean_X_lsensor, self.theta_angles_lsensor, self.phi_angles_lsensor, self.h_lsensor)
-            self.h_lsensor = h_left
-            # print(sensor_data_left)
-            #have to convert fx, fy, fz into sensor frame to stay consistent 
-            # print("pressure left: ",pressure_vals)
-            # print("[" + " ".join(f"{value:.8f }" for value in sensor_data_left) + "]")
-            return sensor_data_left
-            # return np.array([0,0,0.05,0,0])
+            preds, self.state_lsensor = self.model_lsensor.run(
+                pressure_vals, self.nn_model_lsensor, self.state_lsensor,
+                self.std_dev_X_lsensor, self.mean_X_lsensor,
+                sensor_type=sensor_params.sensor_type
+            )
+            return preds
 
-        elif sensor_value =="r":
-            #evaluate model and return values for sensor 2
-            sensor_data_right, h_right = run_binned_rnn(pressure_vals,self.nn_model_rsensor, self.std_dev_X_rsensor, self.mean_X_rsensor, self.theta_angles_rsensor, self.phi_angles_rsensor, self.h_rsensor)
-            self.h_rsensor = h_right
-            # print("pressure right: ",pressure_vals)
-            # print("[" + " ".join(f"{value:.8f}" for value in sensor_data_right) + "]")
-            # print("contact flag right: ", sensor_data_right[-1])
-            return sensor_data_right
-            # return np.array([0,0,0,10,10])
+        elif sensor_value == "r":
+            preds, self.state_rsensor = self.model_rsensor.run(
+                pressure_vals, self.nn_model_rsensor, self.state_rsensor,
+                self.std_dev_X_rsensor, self.mean_X_rsensor,
+                sensor_type=sensor_params.sensor_type
+            )
+            return preds
 
         else:
-            print("sensor type is not known")
-
-
-        
+            raise ValueError("Unknown sensor value")

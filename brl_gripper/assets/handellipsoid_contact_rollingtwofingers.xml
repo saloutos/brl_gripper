@@ -168,7 +168,9 @@
     <equality>
         <weld body1="floating_1" body2="floating_2" solimp="0.95 0.99 0.001 0.5 2"  solref="0.02 1"/>
     </equality>
-
+    <equality>
+        <weld body1="floating_2" body2="palm" solimp="0.95 0.99 0.001 0.5 2"  solref="0.02 1"/>
+    </equality>
 
 
     <contact>

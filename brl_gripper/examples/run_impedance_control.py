@@ -6,7 +6,7 @@ import tty
 import termios
 import sys
 import os
-
+import numpy as np 
 # initialization
 print("Starting init.")
 init_settings = termios.tcgetattr(sys.stdin)
@@ -18,10 +18,10 @@ log_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'logs/')
 hw_mode = bg.HardwareEnable.FINGERS_ONLY
 # hw_mode = bg.HardwareEnable.NO_HW
 
-# sens_mode = bg.SensorDataMode.RAW_PRESSURE_VALS
-sens_mode = bg.SensorDataMode.NO_PRESSURE_VALS
+sens_mode = bg.SensorDataMode.RAW_PRESSURE_VALS
+# sens_mode = bg.SensorDataMode.NO_PRESSURE_VALS
 
-sens_version = bg.SensorVersion.OUTPUT_8
+sens_version = bg.SensorVersion.OUTPUT_5
 
 if hw_mode == bg.HardwareEnable.NO_HW:
     mj_model = mj.MjModel.from_xml_path(xml_path+"_with_object.xml")
@@ -29,7 +29,7 @@ else:
     mj_model = mj.MjModel.from_xml_path(xml_path+".xml")
     
 
-GP = bg.GripperPlatform(mj_model, viewer_enable=True, hardware_enable=hw_mode, sensor_version = sens_version, log_path=log_path)
+GP = bg.GripperPlatform(mj_model, viewer_enable=True, hardware_enable=hw_mode, sensor_version = sens_version,  position_sensor= True, log_path=None, sensor_mode = sens_mode)
 
 # controller
 from controllers.finger_demos.impedance_control import ImpedanceControlDemo
@@ -57,6 +57,7 @@ try:
                 GP.run_control = False
                 GP.sync_data()
                 controller.update(GP.gr_data)
+                # print("current angle: ", 180/np.pi*GP.gr_data.sensors['extern_pos'].position)
                 GP.apply_control()
                 GP.log_data()
                 GP.dt_comp += GP.time() - control_start_time

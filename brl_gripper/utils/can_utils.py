@@ -63,6 +63,7 @@ LEFT_COMMAND =          4
 RIGHT_COMMAND =         5
 WRIST_ID =              5
 PRSSENSOR_DATA = 		6
+SYSSENSOR_DATA = 		7
 
 # Gripper hardware modes
 class HandControlMode(Enum):

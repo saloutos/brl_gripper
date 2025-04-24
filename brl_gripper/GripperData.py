@@ -55,6 +55,8 @@ class SensorData:
         pass
     def sync_data_to_viewer(self, scene, start_idx):
         return start_idx
+    
+    
 
 class FingertipSensorData(SensorData):
     def __init__(self, name=""):
@@ -100,11 +102,12 @@ class FingertipSensorData(SensorData):
 
     # logging functions
     def log_data(self):
-        return self.contact_force.tolist()+self.contact_angle.tolist()+self.dist.tolist()
+        return self.contact_force.tolist()+self.contact_angle.tolist()+self.dist.tolist()+self.contact_flag.tolist()
     def log_header(self):
         return [self.name+"_fx",self.name+"_fy",self.name+"_fz",
                 self.name+"_theta",self.name+"_phi",
-                self.name+"_dist1",self.name+"_dist2",self.name+"_dist3",self.name+"_dist4",self.name+"_dist5"]
+                self.name+"_dist1",self.name+"_dist2",self.name+"_dist3",self.name+"_dist4",self.name+"_dist5",
+                self.name+"contact1",self.name+"contact2"]
     # initialization functions
     def set_force_offset(self, offset=None):
         if offset is not None:
@@ -123,8 +126,9 @@ class FingertipSensorData(SensorData):
         if len(new_data) == 1:
             self.tof_raw = new_data[0]
         elif len(new_data) == 3:
-            Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
-            Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            # Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            # Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            Fxyz = np.array([0,0,new_data[0][-1]])
             self.contact_force_raw = Fxyz # set equal to force values
             self.contact_angle_raw = new_data[1]
             self.contact_flag = new_data[2]
@@ -350,14 +354,16 @@ class EllipsoidFingertipSensorData(SensorData):
         if len(new_data) == 1:
             self.tof_raw = new_data[0]
         elif len(new_data) == 3:
-            Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
-            Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            # Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
+            # Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            Fxyz = np.array([0,0,new_data[0][-1]])
             self.contact_force_raw = Fxyz # set equal to force values
             self.contact_angle_raw = new_data[1]
             self.contact_flag = new_data[2]
         elif len(new_data) == 4:
             # Fxyz = self.sensor_to_contact_frame(new_data[0],new_data[1][0],new_data[1][1]) # convert to contact frame
             # Fxyz[-1] = new_data[0][-1] #replace Fz with normal force Fn
+            print("fxyzn: ", new_data)
             Fxyz = np.array([0,0,new_data[0][-1]])
             self.contact_force_raw = Fxyz
             self.contact_angle_raw = new_data[1]
@@ -646,9 +652,48 @@ class McpPhalangeSensorData(PhalangeSensorData):
 class PipPhalangeSensorData(PhalangeSensorData):
     def __init__(self, name=""):
         super().__init__(name)
-        # different FSR locations
-        self.fsr_pos_offsets = np.array([[-0.00525, 0.0, 0.0],
-                                    [0.00525, 0.0, 0.0]])
+
+
+
+#     def __init__(self, name=""):
+#         self.name = name
+#         self.kinematics = (np.zeros((3,)), np.eye(3)) # (pos, R) of sensor frame, in world frame
+#     # logging functions
+#     def log_data(self):
+#         return []
+#     def log_header(self):
+#         return []
+#     # processing sensor data
+#     def update_kinematics(self, pos, R): # mostly for visualization
+#         self.kinematics = (pos, R)
+#     def update_raw_data_from_hw(self):
+#         pass
+#     def update_raw_data_from_sim(self):
+#         pass
+#     def process_data(self):
+#         pass
+#     def sync_data_to_viewer(self, scene, start_idx):
+#         return start_idx
+
+# # 
+class PositionSensor(SensorData):
+    def __init__(self, name=""):
+        super().__init__(name)
+        self.kinematics = (np.zeros((3,)), np.eye(3)) # (pos, R) of sensor frame, in world frame
+        self.position = 0
+    # logging functions
+    def log_data(self):
+        return [self.position]
+    def log_header(self):
+        return [self.name]
+    # processing sensor data
+    def update_raw_data_from_hw(self, new_data):
+        # new data should come in as list of arrays
+        self.position = new_data
+    def update_raw_data_from_sim(self, new_data):
+        # new data should come in as dict with mujoco sensor names and data as arrays
+        self.position = new_data
+
 
 
 # gripper data class

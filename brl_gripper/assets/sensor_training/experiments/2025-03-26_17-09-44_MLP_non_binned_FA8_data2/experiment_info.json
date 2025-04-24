@@ -1,0 +1,41 @@
+{
+    "experiment_desc": "MLP_non_binned_FA8_data2",
+    "sensor_name": "FA8_3_11_calibrationoffsetv2_100hzellipsoid",
+    "device": "cuda",
+    "dataset_name": "MLPSensorDataset",
+    "model_name": "MLPSensorNet",
+    "loss_name": "get_mlp_loss",
+    "val_loss_name": "masked_angle_loss",
+    "optimizer_name": "Adam",
+    "dataset_kwargs": {},
+    "model_kwargs": {
+        "hidden_layers": [
+            12,
+            64,
+            64
+        ],
+        "dropout_p": 0.2,
+        "theta_range": [
+            -0.6981317007977318,
+            0.6981317007977318
+        ],
+        "phi_range": [
+            -1.2566370614359172,
+            1.2566370614359172
+        ]
+    },
+    "loss_kwargs": {
+        "contact_weight": 10
+    },
+    "training_kwargs": {
+        "lr": 5e-05,
+        "n_train_epochs": 1000,
+        "batch_size": 50,
+        "val_epoch_freq": 10,
+        "checkpoint_freq": 10,
+        "show_pbar": true,
+        "early_stopping_patience": 100,
+        "weight_path": null,
+        "track_grads": false
+    }
+}
