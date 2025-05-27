@@ -143,6 +143,7 @@ class GripperPlatform:
                 can_config = yaml.safe_load(file)
             try:
                 for PCAN_DEVICE in can.detect_available_configs('pcan'):
+                    print(f"Found CAN device: {PCAN_DEVICE['device_id']}")
                     # first CAN bus for finger board
                     if(PCAN_DEVICE['device_id']==eval(can_config['Interface1']['device_id'])):
                         self.CAN_bus_1 = can.interface.Bus(bustype=can_config['Interface1']['bustype'], channel=can_config['Interface1']['channel'],
@@ -152,6 +153,7 @@ class GripperPlatform:
                                     nom_tseg1=can_config['Nominal']['tseg1'], nom_tseg2=can_config['Nominal']['tseg2'], nom_sjw=can_config['Nominal']['sjw'],
                                     data_tseg1=can_config['Data']['tseg1'], data_tseg2=can_config['Data']['tseg2'], data_sjw=can_config['Data']['sjw'])
                         print(f"CAN_BUS_1: {PCAN_DEVICE['device_id']}")
+                    print("Done with bus 1.")
                     # second CAN bus for wrist roll motor
                     if self.wrist_enable:
                         if(PCAN_DEVICE['device_id']==eval(can_config['Interface2']['device_id'])):

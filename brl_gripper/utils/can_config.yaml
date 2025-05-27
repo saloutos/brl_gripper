@@ -1,7 +1,7 @@
 Interface1: # Hand CAN
   bustype: pcan
   channel: PCAN_USBBUS1
-  device_id: "4294967294"
+  device_id: "4294967295" #"4294967294"
   state: can.bus.BusState.ACTIVE
   fd: True
   f_clock_mhz: 80
